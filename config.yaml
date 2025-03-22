@@ -1,0 +1,18 @@
+price_pool_ttl: 10
+aggregator_nodes: 3
+consensus_threshold: 0.01
+assets:
+  - name: "BTC/USD"
+    feeds:
+      - name: "binance"
+        interval: 5    # Poll every 5s
+      - name: "coinbase"
+        interval: 10   # Poll every 10s
+      - name: "kraken"
+        interval: 15   # Poll every 15s
+  - name: "ETH/USD"
+    feeds:
+      - name: "binance"
+        interval: 5
+      - name: "kraken"
+        interval: 10
