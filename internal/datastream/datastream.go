@@ -21,15 +21,19 @@ func New(cfg *config.Config, out chan models.Price) *DataStream {
 }
 
 func (ds *DataStream) RegisterFeed(feed PriceFeed) {
+	// will include a string generator
 	ds.feeds[feed.Name()] = feed
 }
 
+// A job scheduler here that runs at intervals based on the feed
+// TODO: restructure so asset is based on feed instead
 func (ds *DataStream) Start(ctx context.Context, cfg *config.Config) {
 	for _, asset := range cfg.Assets {
 		for _, feedCfg := range asset.Feeds {
 			feed := ds.feeds[feedCfg.Name]
+			// if feed doesn't exist, just move on meaning the asset doesn't support feed
 			if feed == nil {
-				logging.Logger.Warn("Unknown feed", zap.String("name", feedCfg.Name))
+				// logging.Logger.Warn("Unknown feed", zap.String("name", feedCfg.Name))
 				continue
 			}
 			go ds.runFeed(ctx, asset.Name, feed, time.Duration(feedCfg.Interval)*time.Second)
@@ -55,7 +59,10 @@ func (ds *DataStream) runFeed(ctx context.Context, asset string, feed PriceFeed,
 				continue
 			}
 			price.Asset = asset
-			ds.out <- price
+			if feed.Name() != "pyth" {
+				continue
+			}
+			ds.out <- *price
 			logging.Logger.Info("Price fetched",
 				zap.String("asset", price.Asset),
 				zap.Float64("value", price.Value),

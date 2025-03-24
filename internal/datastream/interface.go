@@ -7,7 +7,8 @@ import (
 )
 
 type PriceFeed interface {
-	FetchPrice(ctx context.Context) (models.Price, error)
+	FetchPrice(ctx context.Context) (*models.Price, error)
 	Name() string
 	Interval() time.Duration
+	AssetID() string
 }
