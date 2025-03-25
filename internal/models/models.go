@@ -1,8 +1,8 @@
 package models
 
 import (
-	"time"
 	"oracle_engine/internal/config"
+	"time"
 )
 
 type Price struct {
@@ -13,7 +13,15 @@ type Price struct {
 }
 
 type AssetFeed struct {
-	feed config.FeedConfig
+	feed  config.FeedConfig
 	asset string
-	
+}
+
+type UnifiedPrice struct {
+	AssetID   string    `json:"assetID"`
+	Value     int32     `json:"value"`
+	Expo      int8      `json:"expo"`
+	Timestamp time.Time `json:"timestamp"`
+	Source    string    `json:"source"`
+	ReqHash   string    `json:"req_hash"`
 }

@@ -13,8 +13,9 @@ type FeedConfig struct {
 }
 
 type AssetConfig struct {
-	Name  string       `mapstructure:"name"`  // e.g., "BTC/USD"
-	Feeds []FeedConfig `mapstructure:"feeds"` // List of feeds
+	Name                  string       `mapstructure:"name"`                  // e.g., "BTC/USD"
+	InternalAssetIdentity string       `mapstructure:"internalAssetIdentity"` // eg "0xUSDT"
+	Feeds                 []FeedConfig `mapstructure:"feeds"`                 // List of feeds
 }
 
 type Config struct {
