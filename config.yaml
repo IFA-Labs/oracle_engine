@@ -4,23 +4,14 @@ consensus_threshold: 0.01
 assets:
   - name: "USDT/USD"
     feeds:
-      - name: "binance"
-        interval: 5    # Poll every 5s
-        assetID: "2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b"
       - name: "pyth"
         interval: 10
-        assetID: "2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b"
-      - name: "coinbase"
-        interval: 10   # Poll every 10s
-        assetID: "2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b"
-      - name: "kraken"
-        interval: 15   # Poll every 15s
         assetID: "2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b"
   - name: "ETH/USD"
     feeds:
       - name: "pyth"
         interval: 5
         assetID: "ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace"
-      - name: "kraken"
-        interval: 10
+      - name: "coinmarketcap"
+        interval: 276
         assetID: "2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b"

@@ -2,15 +2,15 @@ package pyth
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
+	"strconv"
 	"time"
-
-	"go.uber.org/zap"
 )
 
 type PythFeed struct {
@@ -27,17 +27,18 @@ type PythResponse struct {
 }
 
 type PythPrice struct {
-	id    string
-	price struct {
+	Id    string `json:"id"`
+	Price struct {
 		Price       string `json:"price"`
-		PublishTime string `json:"publish_time"`
-	}
+		PublishTime int    `json:"publish_time"`
+		Exponential int    `json:"expo"`
+	} `json:"price"`
 }
 
-func (p *PythFeed) FetchPrice(ctx context.Context) (*models.Price, error) {
+func (p *PythFeed) FetchPrice(ctx context.Context, assetID string) (*models.Price, error) {
 	baseURL := "https://hermes.pyth.network/v2/updates/price/latest"
 	params := url.Values{}
-	params.Add("ids[]", "elem")
+	params.Add("ids[]", assetID)
 
 	fullURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())
 	response, err := http.Get(fullURL)
@@ -46,17 +47,25 @@ func (p *PythFeed) FetchPrice(ctx context.Context) (*models.Price, error) {
 		return nil, err
 	}
 
-	responseData, err := ioutil.ReadAll(response.Body)
+	responseData, _ := io.ReadAll(response.Body)
 
+	var pythResponse PythResponse
+	err = json.Unmarshal(responseData, &pythResponse)
 	if err != nil {
-		logging.Logger.Error("Pyth error", zap.Any("err", responseData))
+		errMsg := fmt.Errorf("error unmarshaling %w", err)
+		fmt.Printf("%v", errMsg)
+		return nil, err
 	}
 
-	fmt.Printf("asset %v", string(responseData))
+	priceF32, err := strconv.ParseFloat(pythResponse.Parsed[0].Price.Price, 32)
+	if err != nil {
+		logging.Logger.Error("Couldn't parse response")
+		return nil, err
+	}
 
 	// Pyth api call
 	return &models.Price{
-		Value:     50000.0, // Dummy
+		Value:     priceF32,
 		Timestamp: time.Now(),
 		Source:    p.Name(),
 	}, nil

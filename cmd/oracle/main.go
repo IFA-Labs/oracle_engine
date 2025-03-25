@@ -4,6 +4,7 @@ import (
 	"context"
 	"oracle_engine/internal/config"
 	"oracle_engine/internal/datastream"
+	"oracle_engine/internal/pricepool"
 	"oracle_engine/internal/datastream/binance"
 	"oracle_engine/internal/datastream/pyth"
 	"oracle_engine/internal/logging"
@@ -38,6 +39,10 @@ func main() {
 
 	// Start Data Stream
 	go ds.Start(ctx, cfg)
+
+	// Price pool
+	pp := pricepool.New(cfg, priceCh)
+    go pp.Start(ctx)
 
 	// Graceful shutdown
 	sigs := make(chan os.Signal, 1)

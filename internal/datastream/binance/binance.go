@@ -14,7 +14,7 @@ func New() *BinanceFeed {
 	return &BinanceFeed{}
 }
 
-func (b *BinanceFeed) FetchPrice(ctx context.Context) (*models.Price, error) {
+func (b *BinanceFeed) FetchPrice(ctx context.Context, assetID string) (*models.Price, error) {
 	// TODO: Replace with real Binance API call
 	return &models.Price{
 		Value:     50000.0, // Dummy

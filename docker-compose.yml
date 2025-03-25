@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  oracle:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oracle
+    volumes:
+      - ./config.yaml:/app/config.yaml  # Mount config for live edits
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis  # Matches service name
+      - REDIS_PORT=6379
+    networks:
+      - oracle-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    command: redis-server --requirepass ""  # No password for simplicity; configure later
+    volumes:
+      - redis-data:/data  # Persist data (optional)
+    ports:
+      - "6379:6379"       # Expose Redis port locally
+    networks:
+      - oracle-net
+
+volumes:
+  redis-data:
+
+networks:
+  oracle-net:
+    driver: bridge
