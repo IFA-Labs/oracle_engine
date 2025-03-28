@@ -7,11 +7,11 @@ services:
       dockerfile: Dockerfile
     container_name: oracle
     volumes:
-      - ./config.yaml:/app/config.yaml  # Mount config for live edits
+      - ./config.yaml:/app/config.yaml # Mount config for live edits
     depends_on:
       - redis
     environment:
-      - REDIS_HOST=redis  # Matches service name
+      - REDIS_HOST=redis # Matches service name
       - REDIS_PORT=6379
     networks:
       - oracle-net
@@ -19,16 +19,32 @@ services:
   redis:
     image: redis:7-alpine
     container_name: redis
-    command: redis-server --requirepass ""  # No password for simplicity; configure later
+    command: redis-server --requirepass "" # No password for simplicity; configure later
     volumes:
-      - redis-data:/data  # Persist data (optional)
+      - redis-data:/data # Persist data (optional)
     ports:
-      - "6379:6379"       # Expose Redis port locally
+      - "6379:6379" # Expose Redis port locally
+    networks:
+      - oracle-net
+
+  timescale:
+    image: timescale/timescaledb:latest-pg16
+    container_name: timescale
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_DB=oracle
+    volumes:
+      - timescale-data:/var/lib/postgresql/data
+    ports:
+      - "5430:5432"
     networks:
       - oracle-net
 
 volumes:
   redis-data:
+  timescale-data:
+
 
 networks:
   oracle-net:

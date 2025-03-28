@@ -11,6 +11,8 @@ import (
 	"oracle_engine/internal/models"
 	"strconv"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type PythFeed struct {
@@ -41,6 +43,7 @@ func (p *PythFeed) FetchPrice(ctx context.Context, assetID string) (*models.Pric
 	params.Add("ids[]", assetID)
 
 	fullURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())
+	logging.Logger.Info("hel", zap.Any("url", fullURL))
 	response, err := http.Get(fullURL)
 	if err != nil {
 		logging.Logger.Error("Couldn't fetch data")

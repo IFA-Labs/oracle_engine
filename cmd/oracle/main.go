@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"oracle_engine/internal/config"
+	"oracle_engine/internal/database/timescale"
 	"oracle_engine/internal/datastream"
-	"oracle_engine/internal/pricepool"
 	"oracle_engine/internal/datastream/binance"
 	"oracle_engine/internal/datastream/pyth"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
+	"oracle_engine/internal/pricepool"
 	"os"
 	"os/signal"
 	"syscall"
@@ -30,6 +31,15 @@ func main() {
 	// Initialize Data Stream
 	priceCh := make(chan models.Price, 100)
 	ds := datastream.New(cfg, priceCh)
+	db, _ := timescale.NewTimescaleDB("postgres://user:pass@timescale:5432/oracle")
+
+	l, err := db.GetLastPrice(ctx, "0x1234")
+	if err != nil {
+		logging.Logger.Warn("----- Wrong", zap.Any("rec", err))
+	} else {
+
+		logging.Logger.Warn("----- Definitely", zap.Any("rec", l))
+	}
 
 	// Register feeds
 	ds.RegisterFeed(binance.New())
@@ -42,7 +52,7 @@ func main() {
 
 	// Price pool
 	pp := pricepool.New(cfg, priceCh)
-    go pp.Start(ctx)
+	go pp.Start(ctx)
 
 	// Graceful shutdown
 	sigs := make(chan os.Signal, 1)
