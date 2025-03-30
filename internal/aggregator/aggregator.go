@@ -60,7 +60,6 @@ func (ag *Aggregator) Start(ctx context.Context, cfg *config.Config, outCh AggrU
 		)
 		go assetAggregatorUnit.RunAggregatorThreadUnit(ctx)
 	}
-	// run the main aggregator itself
 }
 
 func (ag *Aggregator) Run(ctx context.Context, priceChan AggrUnitCh) {
