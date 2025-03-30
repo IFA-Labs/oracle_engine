@@ -54,7 +54,6 @@ func (au *AggregatorUnit) RunAggregatorThreadUnit(ctx context.Context) {
 				au.wg.Add(1)
 
 				copiedPrices := make([]models.UnifiedPrice, 10)
-				priceBuf = []models.UnifiedPrice{}
 				copy(copiedPrices, priceBuf)
 				go func(cp []models.UnifiedPrice) {
 					defer au.wg.Done()
@@ -63,6 +62,8 @@ func (au *AggregatorUnit) RunAggregatorThreadUnit(ctx context.Context) {
 						cp, au.outCh, au.AggrDevPerc,
 					)
 				}(copiedPrices)
+				// reset price buf
+				priceBuf = []models.UnifiedPrice{}
 			}
 		}
 	}
@@ -81,11 +82,13 @@ func threadUnitCalculateBatchAverage(
 		pn := p.Number()
 		devPerc := math.Abs(pn-avg) / avg
 		if devPerc > float64(aggr_dev_perc) {
-			return
+			continue
 		}
 		sum += pn
 	}
 	avg = sum / float64(len(batch))
+
+	logging.Logger.Warn("---compute babe-- ret", zap.Any("k", avg))
 	// some other calc
 	// source aggr and hash gen
 	avgPrice := models.UnifiedPrice{

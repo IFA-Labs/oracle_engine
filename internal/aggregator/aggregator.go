@@ -46,6 +46,7 @@ func (ag *Aggregator) Start(ctx context.Context, cfg *config.Config, outCh AggrU
 	for _, asset := range cfg.Assets {
 		// TODO: calculate asset ID using identity string to hash
 		assetID := utils.GenerateIDForAsset(asset.InternalAssetIdentity)
+		logging.Logger.Info("asset aggr", zap.String("key", assetID))
 
 		// create channel for the unit
 		aggrUnitCh := make(chan models.UnifiedPrice, 10)
@@ -70,8 +71,6 @@ func (ag *Aggregator) Run(ctx context.Context, priceChan AggrUnitCh) {
 		case <-ctx.Done():
 			return
 		case price := <-priceChan:
-
-			logging.Logger.Warn("---yy-- ret", zap.Any("k", price.AssetID))
 			// retrieve the id of the price
 			assetID := price.AssetID
 			// throw to the channel for that id

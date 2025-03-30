@@ -9,7 +9,7 @@ import (
 
 type Price struct {
 	Asset                 string    `json:"asset"`
-	InternalAssetIdentity string    `json:"asset"`
+	InternalAssetIdentity string    `json:"internal_asset_identity"`
 	Value                 float64   `json:"value"`
 	Expo                  int8      `json:"expo"`
 	Timestamp             time.Time `json:"timestamp"`

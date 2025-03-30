@@ -37,13 +37,13 @@ type PythPrice struct {
 	} `json:"price"`
 }
 
-func (p *PythFeed) FetchPrice(ctx context.Context, assetID string) (*models.Price, error) {
+func (p *PythFeed) FetchPrice(ctx context.Context, assetID string, internalAssetId string) (*models.Price, error) {
 	baseURL := "https://hermes.pyth.network/v2/updates/price/latest"
 	params := url.Values{}
 	params.Add("ids[]", assetID)
 
 	fullURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())
-	logging.Logger.Info("hel", zap.Any("url", fullURL))
+	logging.Logger.Info("hel", zap.Any("url", p.assetID))
 	response, err := http.Get(fullURL)
 	if err != nil {
 		logging.Logger.Error("Couldn't fetch data")
@@ -68,9 +68,10 @@ func (p *PythFeed) FetchPrice(ctx context.Context, assetID string) (*models.Pric
 
 	// Pyth api call
 	return &models.Price{
-		Value:     priceF32,
-		Timestamp: time.Now(),
-		Source:    p.Name(),
+		Value:                 priceF32,
+		Timestamp:             time.Now(),
+		Source:                p.Name(),
+		InternalAssetIdentity: internalAssetId,
 	}, nil
 }
 

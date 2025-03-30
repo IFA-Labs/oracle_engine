@@ -69,11 +69,12 @@ func main() {
 }
 
 func ll(ctx context.Context, aggr *aggregator.Aggregator) {
+	outCh := aggr.OutCh()
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case p := <-aggr.OutCh():
+		case p := <-outCh:
 			logging.Logger.Sugar().Info(
 				" ---------- For Consensus",
 				zap.Any("name", p.AssetID),
