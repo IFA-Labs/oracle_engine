@@ -22,6 +22,7 @@ type Config struct {
 	PricePoolTTL    int           `mapstructure:"price_pool_ttl"`
 	AggregatorNodes int           `mapstructure:"aggregator_nodes"`
 	ConsensusThresh float64       `mapstructure:"consensus_threshold"`
+	AggrDevPerc     float32       `mapstructure:"aggr_dev_perc"`
 	Assets          []AssetConfig `mapstructure:"assets"`
 }
 

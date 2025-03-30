@@ -66,12 +66,12 @@ func (t *TimescaleDB) GetLastPrice(ctx context.Context, assetID string) (float64
         WHERE asset_id = $1
         ORDER BY timestamp DESC
         LIMIT 1`
-	var value int32
+	var value int64
 	var expo int8
 	err := t.db.QueryRowContext(ctx, query, assetID).Scan(&value, &expo)
 	if err != nil {
 		return 0, err
 	}
-	logging.Logger.Warn("caught", zap.Int32("key", value), zap.Int32("expo", int32(expo)))
+	logging.Logger.Warn("caught", zap.Int64("key", value), zap.Int32("expo", int32(expo)))
 	return models.UnifiedPrice{Value: value, Expo: expo}.Number(), nil
 }

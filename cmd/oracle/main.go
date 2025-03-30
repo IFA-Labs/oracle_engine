@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"oracle_engine/internal/aggregator"
 	"oracle_engine/internal/config"
 	"oracle_engine/internal/database/timescale"
 	"oracle_engine/internal/datastream"
@@ -54,9 +55,30 @@ func main() {
 	pp := pricepool.New(cfg, priceCh)
 	go pp.Start(ctx)
 
+	// Aggr
+	aggr := aggregator.New(ctx, cfg)
+	aggr.Run(ctx, pp.OutChannel())
+
+	go ll(ctx, aggr)
+
 	// Graceful shutdown
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	<-sigs
 	logging.Logger.Info("Shutting down")
+}
+
+func ll(ctx context.Context, aggr *aggregator.Aggregator) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case p := <-aggr.OutCh():
+			logging.Logger.Sugar().Info(
+				" ---------- For Consensus",
+				zap.Any("name", p.AssetID),
+				zap.Any("avg", p.Normalize()),
+			)
+		}
+	}
 }

@@ -1,6 +1,7 @@
 price_pool_ttl: 10
 aggregator_nodes: 3
 consensus_threshold: 0.01
+aggr_dev_perc: 0.2
 assets:
   - name: "USDT/USD"
     internalAssetIdentity: "0xUSDT"

@@ -19,7 +19,7 @@ import (
 type PricePool struct {
 	client   *redis.Client
 	cfg      *config.Config
-	out      chan models.Price // To Aggregators (future)
+	out      chan models.UnifiedPrice // To Aggregators (future)
 	dlq      *dlq.DLQ          // Dead-letter queue
 	incoming chan models.Price // From Data Stream
 }
@@ -44,7 +44,7 @@ func New(cfg *config.Config, incoming chan models.Price) *PricePool {
         client:   client,
         cfg:      cfg,
         incoming: incoming,
-        out:      make(chan models.Price, 100),
+        out:      make(chan models.UnifiedPrice, 100),
         dlq:      dlq.NewDLQ(),
     }
 }
@@ -70,7 +70,7 @@ func (p *PricePool) processIncoming(ctx context.Context) {
 					zap.Error(err))
 				continue
 			}
-			p.out <- price // Pass to Aggregators
+			p.out <- price.ToUnified() // Pass to Aggregators
 			logging.Logger.Info("Price stored",
 				zap.String("asset", price.Asset),
 				zap.Float64("value", price.Value))
@@ -159,6 +159,6 @@ func (p *PricePool) updatePrices(ctx context.Context, key string, prices []model
 	p.client.Expire(ctx, key, time.Duration(p.cfg.PricePoolTTL)*time.Minute)
 }
 
-func (p *PricePool) OutChannel() chan models.Price {
+func (p *PricePool) OutChannel() chan models.UnifiedPrice {
 	return p.out
 }
