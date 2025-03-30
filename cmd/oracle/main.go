@@ -4,6 +4,7 @@ import (
 	"context"
 	"oracle_engine/internal/aggregator"
 	"oracle_engine/internal/config"
+	"oracle_engine/internal/consensus"
 	"oracle_engine/internal/database/timescale"
 	"oracle_engine/internal/datastream"
 	"oracle_engine/internal/datastream/binance"
@@ -11,6 +12,7 @@ import (
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
 	"oracle_engine/internal/pricepool"
+	"oracle_engine/internal/relayer"
 	"os"
 	"os/signal"
 	"syscall"
@@ -59,27 +61,12 @@ func main() {
 	aggr := aggregator.New(ctx, cfg)
 	aggr.Run(ctx, pp.OutChannel())
 
-	go ll(ctx, aggr)
+	consensus := consensus.New(relayer.New(), db)
+	go consensus.Ambassador(ctx, aggr.AggrOutCh)
 
 	// Graceful shutdown
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	<-sigs
 	logging.Logger.Info("Shutting down")
-}
-
-func ll(ctx context.Context, aggr *aggregator.Aggregator) {
-	outCh := aggr.OutCh()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case p := <-outCh:
-			logging.Logger.Sugar().Info(
-				" ---------- For Consensus",
-				zap.Any("name", p.AssetID),
-				zap.Any("avg", p.Normalize()),
-			)
-		}
-	}
 }

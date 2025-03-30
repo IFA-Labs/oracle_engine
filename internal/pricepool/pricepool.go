@@ -2,7 +2,6 @@ package pricepool
 
 import (
 	"context"
-	"os"
 	"encoding/json"
 	"errors"
 	"oracle_engine/internal/config"
@@ -10,6 +9,7 @@ import (
 	"oracle_engine/internal/models"
 	"oracle_engine/internal/pricepool/dlq"
 	"oracle_engine/internal/pricepool/outlier"
+	"os"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -20,33 +20,33 @@ type PricePool struct {
 	client   *redis.Client
 	cfg      *config.Config
 	out      chan models.UnifiedPrice // To Aggregators (future)
-	dlq      *dlq.DLQ          // Dead-letter queue
-	incoming chan models.Price // From Data Stream
+	dlq      *dlq.DLQ                 // Dead-letter queue
+	incoming chan models.Price        // From Data Stream
 }
 
 func New(cfg *config.Config, incoming chan models.Price) *PricePool {
-    redisHost := os.Getenv("REDIS_HOST")
-    if redisHost == "" {
-        redisHost = "localhost" // Default for non-Docker
-    }
-    redisPort := os.Getenv("REDIS_PORT")
-    if redisPort == "" {
-        redisPort = "6379"
-    }
+	redisHost := os.Getenv("REDIS_HOST")
+	if redisHost == "" {
+		redisHost = "localhost" // Default for non-Docker
+	}
+	redisPort := os.Getenv("REDIS_PORT")
+	if redisPort == "" {
+		redisPort = "6379"
+	}
 
-    client := redis.NewClient(&redis.Options{
-        Addr:     redisHost + ":" + redisPort,
-        Password: "", // Add via env if needed
-        DB:       0,
-    })
+	client := redis.NewClient(&redis.Options{
+		Addr:     redisHost + ":" + redisPort,
+		Password: "", // Add via env if needed
+		DB:       0,
+	})
 
-    return &PricePool{
-        client:   client,
-        cfg:      cfg,
-        incoming: incoming,
-        out:      make(chan models.UnifiedPrice, 100),
-        dlq:      dlq.NewDLQ(),
-    }
+	return &PricePool{
+		client:   client,
+		cfg:      cfg,
+		incoming: incoming,
+		out:      make(chan models.UnifiedPrice, 100),
+		dlq:      dlq.NewDLQ(),
+	}
 }
 
 func (p *PricePool) Start(ctx context.Context) {
@@ -73,7 +73,7 @@ func (p *PricePool) processIncoming(ctx context.Context) {
 			p.out <- price.ToUnified() // Pass to Aggregators
 			logging.Logger.Info("Price stored",
 				zap.String("asset", price.Asset),
-				zap.Float64("value", price.Value))
+				zap.Float64("value", price.ToUnified().Number()))
 		}
 	}
 }

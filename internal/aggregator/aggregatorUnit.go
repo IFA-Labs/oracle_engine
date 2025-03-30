@@ -18,13 +18,13 @@ type AggregatorUnit struct {
 	AggrDevPerc   float32
 	AssetID       string
 	ch            AggrUnitCh
-	outCh         AggrUnitCh
+	outCh         *AggrUnitCh
 	wg            sync.WaitGroup
 }
 
 func NewAggregatorUnit(
 	ch AggrUnitCh,
-	outCh AggrUnitCh,
+	outCh *AggrUnitCh,
 	aggrDevPerc float32,
 	initialThreadCount uint8,
 	assetID string,
@@ -71,7 +71,7 @@ func (au *AggregatorUnit) RunAggregatorThreadUnit(ctx context.Context) {
 
 func threadUnitCalculateBatchAverage(
 	batch []models.UnifiedPrice,
-	outgoingCh AggrUnitCh,
+	outgoingCh *AggrUnitCh,
 	aggr_dev_perc float32,
 ) {
 	firstPrice := batch[0]
@@ -99,5 +99,5 @@ func threadUnitCalculateBatchAverage(
 		Source:    "ifa_labs",
 		ReqHash:   "todo",
 	}
-	outgoingCh <- avgPrice
+	*outgoingCh <- avgPrice
 }

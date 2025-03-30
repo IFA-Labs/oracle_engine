@@ -62,3 +62,20 @@ func (up UnifiedPrice) Normalize() int64 {
 
 	return int64(number * math.Pow10(targetExpo))
 }
+
+type IssuanceState int
+
+const (
+	Denied IssuanceState = iota
+	Approved
+	Confirmed
+)
+
+type Issuance struct {
+	ID    string        `json:"issuance_id"`
+	State IssuanceState `json:"issuance_state"`
+	// Todo work on metadata
+	Metadata interface{}
+	// price
+	Price UnifiedPrice
+}

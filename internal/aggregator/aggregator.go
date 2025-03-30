@@ -33,15 +33,15 @@ func New(ctx context.Context, cfg *config.Config) *Aggregator {
 		AggegatorChannelsMap:       map[string]AggrUnitCh{},
 	}
 
-	go aggr.Start(ctx, cfg, aggr.AggrOutCh)
+	go aggr.Start(ctx, cfg)
 	return aggr
 }
 
-func (ag *Aggregator) OutCh() AggrUnitCh {
-	return ag.AggrOutCh
+func (ag *Aggregator) OutCh() *AggrUnitCh {
+	return &ag.AggrOutCh
 }
 
-func (ag *Aggregator) Start(ctx context.Context, cfg *config.Config, outCh AggrUnitCh) {
+func (ag *Aggregator) Start(ctx context.Context, cfg *config.Config) {
 	// spin up units based on the assets available
 	for _, asset := range cfg.Assets {
 		// TODO: calculate asset ID using identity string to hash
@@ -54,7 +54,7 @@ func (ag *Aggregator) Start(ctx context.Context, cfg *config.Config, outCh AggrU
 
 		assetAggregatorUnit := NewAggregatorUnit(
 			aggrUnitCh,
-			outCh,
+			&ag.AggrOutCh,
 			cfg.AggrDevPerc,
 			ag.InitialAggregatorUnitCount,
 			assetID,

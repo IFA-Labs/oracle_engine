@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
@@ -59,19 +60,27 @@ func (t *TimescaleDB) SavePrice(ctx context.Context, price models.UnifiedPrice) 
 	return err
 }
 
-func (t *TimescaleDB) GetLastPrice(ctx context.Context, assetID string) (float64, error) {
+func (t *TimescaleDB) GetLastPrice(ctx context.Context, assetID string) (*models.UnifiedPrice, error) {
 	query := `
-        SELECT value, expo
+        SELECT value, expo, timestamp, source, req_hash
         FROM prices
         WHERE asset_id = $1
         ORDER BY timestamp DESC
         LIMIT 1`
 	var value int64
 	var expo int8
-	err := t.db.QueryRowContext(ctx, query, assetID).Scan(&value, &expo)
+	var timestamp time.Time
+	var source, req_hash string
+	err := t.db.QueryRowContext(ctx, query, assetID).Scan(&value, &expo, &timestamp, &source, &req_hash)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	logging.Logger.Warn("caught", zap.Int64("key", value), zap.Int32("expo", int32(expo)))
-	return models.UnifiedPrice{Value: value, Expo: expo}.Number(), nil
+	return &models.UnifiedPrice{
+		Value:     value,
+		Expo:      expo,
+		Timestamp: timestamp,
+		ReqHash:   req_hash,
+		Source:    source,
+	}, nil
 }
