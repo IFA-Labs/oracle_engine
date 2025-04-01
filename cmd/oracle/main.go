@@ -13,6 +13,7 @@ import (
 	"oracle_engine/internal/models"
 	"oracle_engine/internal/pricepool"
 	"oracle_engine/internal/relayer"
+	"oracle_engine/internal/server"
 	"os"
 	"os/signal"
 	"syscall"
@@ -26,7 +27,7 @@ func main() {
 	defer logging.Sync()
 
 	cfg := config.Load()
-	logging.Logger.Info("Starting oracle", zap.Any("config", cfg))
+	logging.Logger.Info("Starting oracle")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -36,12 +37,12 @@ func main() {
 	ds := datastream.New(cfg, priceCh)
 	db, _ := timescale.NewTimescaleDB("postgres://user:pass@timescale:5432/oracle")
 
-	l, err := db.GetLastPrice(ctx, "0x1234")
+	l, err := db.GetLastPrice(ctx, "0xUSDT-x123")
 	if err != nil {
 		logging.Logger.Warn("----- Wrong", zap.Any("rec", err))
 	} else {
 
-		logging.Logger.Warn("----- Definitely", zap.Any("rec", l))
+		logging.Logger.Warn("----- Definitely", zap.Any("rec", l.Number()))
 	}
 
 	// Register feeds
@@ -59,10 +60,13 @@ func main() {
 
 	// Aggr
 	aggr := aggregator.New(ctx, cfg)
-	aggr.Run(ctx, pp.OutChannel())
+	go aggr.Run(ctx, pp.OutChannel())
 
 	consensus := consensus.New(relayer.New(), db)
 	go consensus.Ambassador(ctx, aggr.AggrOutCh)
+
+	srv := server.New(cfg, consensus.IssuanceChan(), db)
+	go srv.StartHTTPServer(ctx)
 
 	// Graceful shutdown
 	sigs := make(chan os.Signal, 1)

@@ -29,6 +29,8 @@ type Consensus struct {
 }
 
 func New(relayer *relayer.Relayer, db *timescale.TimescaleDB) *Consensus {
+
+	logging.Logger.Warn("---yy-- home run")
 	return &Consensus{
 		relayer:    *relayer,
 		db:         *db,
@@ -41,19 +43,23 @@ func (c *Consensus) IssuanceChan() chan models.Issuance {
 }
 
 func (c *Consensus) Ambassador(ctx context.Context, incomingCh aggregator.AggrUnitCh) {
+	tmpIssuanceCh := make(chan models.Issuance, 10)
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case p := <-incomingCh:
-			logging.Logger.Info(
+			logging.Logger.Warn(
 				" ---------- For Consensus",
 				zap.Any("name", p.AssetID),
-				zap.Any("avg", p.Normalize()),
+				zap.Any("avg", p.Number()),
 			)
-			c.issuanceCh <- c.processAggrPrice(ctx, p)
-		case issuance := <-c.issuanceCh:
-			logging.Logger.Info("Issuance", zap.Int("num", int(issuance.Price.Normalize())))
+			tmpIssuanceCh <- c.processAggrPrice(ctx, p)
+		case issuance := <-tmpIssuanceCh:
+			logging.Logger.Info("Issuance", zap.Int("num", int(issuance.Price.Number())))
+			c.db.SavePrice(ctx, issuance.Price)
+			c.issuanceCh <- issuance
 		}
 	}
 }
@@ -66,8 +72,8 @@ func (c *Consensus) processAggrPrice(
 	lastPrice, err := c.db.GetLastPrice(ctx, price.AssetID)
 	if err != nil {
 		// handle error
-		logging.Logger.Error("Couldn't fetch last price for consensus")
-		return models.Issuance{State: models.Denied, Price: price, ID: id}
+		logging.Logger.Error("Couldn't fetch last price for consensus", zap.Any("id", price.AssetID))
+		lastPrice = &price
 	}
 	lastPrices := []models.UnifiedPrice{*lastPrice}
 	issuance := weighted.CalculateWeightedAveragePrice(id, price, lastPrices)

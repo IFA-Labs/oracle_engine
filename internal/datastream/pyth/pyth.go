@@ -60,7 +60,8 @@ func (p *PythFeed) FetchPrice(ctx context.Context, assetID string, internalAsset
 		return nil, err
 	}
 
-	priceF32, err := strconv.ParseFloat(pythResponse.Parsed[0].Price.Price, 32)
+	priceElem := pythResponse.Parsed[0].Price
+	priceF32, err := strconv.ParseFloat(priceElem.Price, 32)
 	if err != nil {
 		logging.Logger.Error("Couldn't parse response")
 		return nil, err
@@ -69,6 +70,7 @@ func (p *PythFeed) FetchPrice(ctx context.Context, assetID string, internalAsset
 	// Pyth api call
 	return &models.Price{
 		Value:                 priceF32,
+		Expo:                  int8(priceElem.Exponential),
 		Timestamp:             time.Now(),
 		Source:                p.Name(),
 		InternalAssetIdentity: internalAssetId,

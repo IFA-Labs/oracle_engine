@@ -32,7 +32,7 @@ func (t *TimescaleDB) Initialize(ctx context.Context) error {
 	query := `
         CREATE TABLE IF NOT EXISTS prices (
             asset_id TEXT NOT NULL,
-            value INT NOT NULL,
+            value FLOAT8 NOT NULL,
             expo SMALLINT NOT NULL,
             timestamp TIMESTAMPTZ NOT NULL,
             source TEXT NOT NULL,
@@ -67,7 +67,7 @@ func (t *TimescaleDB) GetLastPrice(ctx context.Context, assetID string) (*models
         WHERE asset_id = $1
         ORDER BY timestamp DESC
         LIMIT 1`
-	var value int64
+	var value float64
 	var expo int8
 	var timestamp time.Time
 	var source, req_hash string
@@ -75,7 +75,7 @@ func (t *TimescaleDB) GetLastPrice(ctx context.Context, assetID string) (*models
 	if err != nil {
 		return nil, err
 	}
-	logging.Logger.Warn("caught", zap.Int64("key", value), zap.Int32("expo", int32(expo)))
+	logging.Logger.Warn("caught", zap.Float64("key", value), zap.Int32("expo", int32(expo)))
 	return &models.UnifiedPrice{
 		Value:     value,
 		Expo:      expo,

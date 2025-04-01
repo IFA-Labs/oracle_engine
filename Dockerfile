@@ -11,5 +11,7 @@ FROM alpine:latest
 WORKDIR /app
 COPY --from=builder /oracle-backend .
 COPY config.yaml .
+COPY web/ ./web/
+EXPOSE 5001
 EXPOSE 8080
 CMD ["./oracle-backend"]

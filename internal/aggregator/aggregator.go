@@ -65,7 +65,6 @@ func (ag *Aggregator) Start(ctx context.Context, cfg *config.Config) {
 
 func (ag *Aggregator) Run(ctx context.Context, priceChan AggrUnitCh) {
 
-	logging.Logger.Warn("---yy-- ret")
 	for {
 		select {
 		case <-ctx.Done():

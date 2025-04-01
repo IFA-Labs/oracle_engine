@@ -75,11 +75,11 @@ func threadUnitCalculateBatchAverage(
 	aggr_dev_perc float32,
 ) {
 	firstPrice := batch[0]
-	avg := (firstPrice.Number() + batch[len(batch)-1].Number()) / 2
+	avg := (firstPrice.Value + batch[len(batch)-1].Value) / 2
 
 	sum := 0.0
 	for _, p := range batch {
-		pn := p.Number()
+		pn := p.Value
 		devPerc := math.Abs(pn-avg) / avg
 		if devPerc > float64(aggr_dev_perc) {
 			continue
@@ -92,9 +92,9 @@ func threadUnitCalculateBatchAverage(
 	// some other calc
 	// source aggr and hash gen
 	avgPrice := models.UnifiedPrice{
-		Value:     int64(avg),
+		Value:     avg,
 		AssetID:   firstPrice.AssetID,
-		Expo:      0,
+		Expo:      firstPrice.Expo, // still -18
 		Timestamp: time.Now(),
 		Source:    "ifa_labs",
 		ReqHash:   "todo",

@@ -13,6 +13,8 @@ services:
     environment:
       - REDIS_HOST=redis # Matches service name
       - REDIS_PORT=6379
+    ports:
+      - "5001:5001"
     networks:
       - oracle-net
 

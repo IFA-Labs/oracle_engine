@@ -63,6 +63,7 @@ func (p *PricePool) processIncoming(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case price := <-p.incoming:
+			logging.Logger.Warn("Incoming", zap.Any("key", price.Value))
 			if err := p.validateAndStore(ctx, price); err != nil {
 				p.dlq.Enqueue(price, err)
 				logging.Logger.Warn("Invalid price sent to DLQ",
@@ -70,10 +71,17 @@ func (p *PricePool) processIncoming(ctx context.Context) {
 					zap.Error(err))
 				continue
 			}
-			p.out <- price.ToUnified() // Pass to Aggregators
+
+			logging.Logger.Warn("Incoming2", zap.Any("key", price.Value))
+			unifiedPrice := price.ToUnified()
 			logging.Logger.Info("Price stored",
-				zap.String("asset", price.Asset),
-				zap.Float64("value", price.ToUnified().Number()))
+				zap.String("asset", unifiedPrice.AssetID),
+				zap.Float64("num", unifiedPrice.Number()),
+				zap.Float64("num2", price.Number()),
+				zap.Any("value", unifiedPrice.Value),
+				zap.Any("expo", unifiedPrice.Expo),
+			)
+			p.out <- unifiedPrice // Pass to Aggregators
 		}
 	}
 }
