@@ -57,11 +57,15 @@ func (c *Consensus) Ambassador(ctx context.Context, incomingCh aggregator.AggrUn
 			)
 			tmpIssuanceCh <- c.processAggrPrice(ctx, p)
 		case issuance := <-tmpIssuanceCh:
-			logging.Logger.Info("Issuance", zap.Int("num", int(issuance.Price.Number())))
-			c.db.SavePrice(ctx, issuance.Price)
-			c.issuanceCh <- issuance
+			c.handleIssuance(ctx, issuance)
 		}
 	}
+}
+
+func (c *Consensus) handleIssuance(ctx context.Context, issuance models.Issuance) {
+	logging.Logger.Info("Issuance", zap.Int("num", int(issuance.Price.Number())))
+	c.db.SaveIssuance(ctx, issuance)
+	c.issuanceCh <- issuance
 }
 
 func (c *Consensus) processAggrPrice(

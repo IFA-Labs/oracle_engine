@@ -88,10 +88,16 @@ const (
 )
 
 type Issuance struct {
-	ID    string        `json:"issuance_id"`
-	State IssuanceState `json:"issuance_state"`
-	// Todo work on metadata
-	Metadata interface{}
-	// price
-	Price UnifiedPrice
+	ID             string        `json:"issuance_id"`
+	State          IssuanceState `json:"issuance_state"`
+	IssuerAddress  string        `json:"issuer_address"`
+	RoundID        string        `json:"round_id"`
+	CreatedAt      time.Time     `json:"created_at"`
+	UpdatedAt      time.Time     `json:"updated_at"`
+	Price          UnifiedPrice  `json:"price"`
+	PriceValue     float64       `json:"price_value"` // Normalized price value with 5 decimal places
+	PriceAssetID   string        `json:"price_asset_id"`
+	PriceSource    string        `json:"price_source"`
+	PriceTimestamp time.Time     `json:"price_timestamp"`
+	Metadata       interface{}   `json:"metadata"`
 }

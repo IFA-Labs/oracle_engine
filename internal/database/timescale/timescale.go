@@ -41,13 +41,28 @@ func (t *TimescaleDB) Initialize(ctx context.Context) error {
         );
         -- Convert to hypertable for time-series optimization
         SELECT create_hypertable('prices', 'timestamp', if_not_exists => true);
+
+        -- Create issuances table
+        CREATE TABLE IF NOT EXISTS issuances (
+            id TEXT PRIMARY KEY,
+            state SMALLINT NOT NULL,
+            issuer_address TEXT NOT NULL,
+            round_id TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL,
+            price_value FLOAT8 NOT NULL,
+            price_asset_id TEXT NOT NULL,
+            price_source TEXT NOT NULL,
+            price_timestamp TIMESTAMPTZ NOT NULL,
+            metadata JSONB
+        );
     `
 	_, err := t.db.ExecContext(ctx, query)
 	if err != nil {
-		logging.Logger.Error("Failed to initialize prices table", zap.Error(err))
+		logging.Logger.Error("Failed to initialize database tables", zap.Error(err))
 		return err
 	}
-	logging.Logger.Info("Prices table initialized")
+	logging.Logger.Info("Database tables initialized")
 	return nil
 }
 
@@ -83,4 +98,77 @@ func (t *TimescaleDB) GetLastPrice(ctx context.Context, assetID string) (*models
 		ReqHash:   req_hash,
 		Source:    source,
 	}, nil
+}
+
+func (t *TimescaleDB) SaveIssuance(ctx context.Context, issuance models.Issuance) error {
+	// Only save the price if the issuance is accepted
+	if issuance.State == models.Approved {
+		// Create a UnifiedPrice for the prices table
+		price := models.UnifiedPrice{
+			AssetID:   issuance.PriceAssetID,
+			Value:     issuance.PriceValue,
+			Expo:      -5, // Since we're storing with 5 decimal places
+			Timestamp: issuance.PriceTimestamp,
+			Source:    issuance.PriceSource,
+		}
+		if err := t.SavePrice(ctx, price); err != nil {
+			return err
+		}
+	}
+
+	// Always save the issuance
+	query := `
+        INSERT INTO issuances (
+            id, state, issuer_address, round_id, created_at, updated_at,
+            price_value, price_asset_id, price_source, price_timestamp,
+            metadata
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        ON CONFLICT (id) DO UPDATE SET
+            state = EXCLUDED.state,
+            updated_at = EXCLUDED.updated_at,
+            metadata = EXCLUDED.metadata
+    `
+	_, err := t.db.ExecContext(ctx, query,
+		issuance.ID,
+		issuance.State,
+		issuance.IssuerAddress,
+		issuance.RoundID,
+		issuance.CreatedAt,
+		issuance.UpdatedAt,
+		issuance.PriceValue,
+		issuance.PriceAssetID,
+		issuance.PriceSource,
+		issuance.PriceTimestamp,
+		issuance.Metadata,
+	)
+	return err
+}
+
+func (t *TimescaleDB) GetIssuance(ctx context.Context, id string) (*models.Issuance, error) {
+	query := `
+        SELECT 
+            id, state, issuer_address, round_id, created_at, updated_at,
+            price_value, price_asset_id, price_source, price_timestamp,
+            metadata
+        FROM issuances
+        WHERE id = $1
+    `
+	var issuance models.Issuance
+	err := t.db.QueryRowContext(ctx, query, id).Scan(
+		&issuance.ID,
+		&issuance.State,
+		&issuance.IssuerAddress,
+		&issuance.RoundID,
+		&issuance.CreatedAt,
+		&issuance.UpdatedAt,
+		&issuance.PriceValue,
+		&issuance.PriceAssetID,
+		&issuance.PriceSource,
+		&issuance.PriceTimestamp,
+		&issuance.Metadata,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &issuance, nil
 }
