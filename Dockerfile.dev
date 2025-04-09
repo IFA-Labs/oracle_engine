@@ -1,0 +1,29 @@
+FROM golang:1.23-alpine
+
+WORKDIR /app
+
+# Install air for hot reloading and swag for Swagger docs
+RUN go install github.com/air-verse/air@latest && \
+    go install github.com/swaggo/swag/cmd/swag@latest
+
+
+# Install git and other build dependencies
+RUN apk add --no-cache git
+
+# Copy go mod and sum files
+COPY go.mod go.sum ./
+
+# Download all dependencies
+RUN go mod download
+
+# Copy the source code
+COPY . .
+
+# Generate Swagger docs and ensure they're in the correct location
+RUN swag init -g internal/server/api/api.go
+
+# Expose port
+EXPOSE 5001
+
+# Command to run the application
+CMD ["air"] 

@@ -1,0 +1,159 @@
+basePath: /api
+definitions:
+  config.AssetConfig:
+    properties:
+      feeds:
+        description: List of feeds
+        items:
+          $ref: '#/definitions/config.FeedConfig'
+        type: array
+      internalAssetIdentity:
+        description: eg "0xUSDT"
+        type: string
+      name:
+        description: e.g., "BTC/USD"
+        type: string
+    type: object
+  config.FeedConfig:
+    properties:
+      assetID:
+        type: string
+      interval:
+        description: Seconds (e.g., 5)
+        type: integer
+      name:
+        description: e.g., "binance"
+        type: string
+    type: object
+  models.Issuance:
+    properties:
+      created_at:
+        type: string
+      issuance_id:
+        type: string
+      issuance_state:
+        $ref: '#/definitions/models.IssuanceState'
+      issuer_address:
+        type: string
+      metadata: {}
+      price:
+        $ref: '#/definitions/models.UnifiedPrice'
+      price_asset_id:
+        type: string
+      price_source:
+        type: string
+      price_timestamp:
+        type: string
+      price_value:
+        description: Normalized price value with 5 decimal places
+        type: number
+      round_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  models.IssuanceState:
+    enum:
+    - 0
+    - 1
+    - 2
+    type: integer
+    x-enum-varnames:
+    - Denied
+    - Approved
+    - Confirmed
+  models.UnifiedPrice:
+    properties:
+      assetID:
+        type: string
+      expo:
+        type: integer
+      req_hash:
+        type: string
+      source:
+        type: string
+      timestamp:
+        type: string
+      value:
+        description: Cant use in64 due to overflow
+        type: number
+    type: object
+host: localhost:5001
+info:
+  contact: {}
+  description: API for accessing oracle price data and issuances
+  title: Oracle Engine API
+  version: "1.0"
+paths:
+  /assets:
+    get:
+      description: Returns list of all available assets
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/config.AssetConfig'
+            type: array
+      summary: Get available assets
+      tags:
+      - assets
+  /issuances/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Returns details of a specific issuance
+      parameters:
+      - description: Issuance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Issuance'
+      summary: Get issuance details
+      tags:
+      - issuances
+  /prices/last:
+    get:
+      consumes:
+      - application/json
+      description: Returns the last known price for a specific asset or all assets
+      parameters:
+      - description: Asset ID to get price for
+        in: query
+        name: asset
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: number
+            type: object
+      summary: Get last price for an asset
+      tags:
+      - prices
+  /prices/stream:
+    get:
+      description: Server-Sent Events stream of price updates
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE stream
+          schema:
+            type: string
+      summary: Stream price updates
+      tags:
+      - prices
+swagger: "2.0"

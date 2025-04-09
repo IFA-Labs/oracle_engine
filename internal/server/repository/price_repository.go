@@ -1,0 +1,28 @@
+package repository
+
+import (
+	"context"
+	"oracle_engine/internal/database/timescale"
+	"oracle_engine/internal/models"
+)
+
+type PriceRepository interface {
+	SavePrice(ctx context.Context, price models.UnifiedPrice) error
+	GetLastPrice(ctx context.Context, assetID string) (*models.UnifiedPrice, error)
+}
+
+type priceRepository struct {
+	db *timescale.TimescaleDB
+}
+
+func NewPriceRepository(db *timescale.TimescaleDB) PriceRepository {
+	return &priceRepository{db: db}
+}
+
+func (r *priceRepository) SavePrice(ctx context.Context, price models.UnifiedPrice) error {
+	return r.db.SavePrice(ctx, price)
+}
+
+func (r *priceRepository) GetLastPrice(ctx context.Context, assetID string) (*models.UnifiedPrice, error) {
+	return r.db.GetLastPrice(ctx, assetID)
+}

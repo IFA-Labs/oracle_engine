@@ -18,6 +18,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	_ "oracle_engine/docs"
+
 	"go.uber.org/zap"
 )
 

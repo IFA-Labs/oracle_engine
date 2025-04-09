@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  oracle:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: oracle-dev
+    volumes:
+      - .:/app
+      - ./config.yaml:/app/config.yaml
+    depends_on:
+      - redis
+      - timescale
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - POSTGRES_HOST=timescale
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_DB=oracle
+      - APP_ENV=dev
+      - APP_USER=gorgeous-kata
+    ports:
+      - "5001:5001"
+    networks:
+      - oracle-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis-dev
+    command: redis-server --requirepass ""
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - oracle-net
+
+  timescale:
+    image: timescale/timescaledb:latest-pg16
+    container_name: timescale-dev
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_DB=oracle
+    volumes:
+      - timescale-data:/var/lib/postgresql/data
+    ports:
+      - "5430:5432"
+    networks:
+      - oracle-net
+
+volumes:
+  redis-data:
+  timescale-data:
+
+
+networks:
+  oracle-net:
+    driver: bridge
