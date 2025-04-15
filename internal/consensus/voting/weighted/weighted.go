@@ -5,6 +5,7 @@ import (
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
 	"sort"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -53,6 +54,19 @@ func CalculateWeightedAveragePrice(
 	state := models.Approved
 	if isDeviated {
 		state = models.Denied
+	}
+
+	// Use diff of 5% only is approved
+	// also, allow if the last update timeout is more than 10s
+	lastUpdate := time.Since(currPrice.Timestamp)
+	if lastUpdate > 10*time.Second {
+		state = models.Approved
+	} else {
+		if weightedAvg-mean > 0.05*mean {
+			state = models.Approved
+		} else {
+			state = models.Denied
+		}
 	}
 
 	modPrice := currPrice

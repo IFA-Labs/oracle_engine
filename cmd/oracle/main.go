@@ -8,6 +8,7 @@ import (
 	"oracle_engine/internal/database/timescale"
 	"oracle_engine/internal/datastream"
 	"oracle_engine/internal/datastream/binance"
+	"oracle_engine/internal/datastream/monierate"
 	"oracle_engine/internal/datastream/pyth"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
@@ -50,8 +51,7 @@ func main() {
 	// Register feeds
 	ds.RegisterFeed(binance.New())
 	ds.RegisterFeed(pyth.New())
-	// ds.RegisterFeed(coinbase.New())
-	// ds.RegisterFeed(kraken.New())
+	ds.RegisterFeed(monierate.New(cfg))
 
 	// Start Data Stream
 	go ds.Start(ctx, cfg)

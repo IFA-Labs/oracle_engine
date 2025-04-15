@@ -15,6 +15,22 @@ assets:
       - name: "pyth"
         interval: 5
         assetID: "ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace"
-      - name: "coinmarketcap"
+      - name: "coingecko"
         interval: 276
         assetID: "2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b"
+  - name: "NGN/USD"
+    internalAssetIdentity: "0xNGN"
+    feeds:
+      - name: "monierate"
+        interval: 50
+        assetID: "NGN"
+contracts:
+  - address: "0x0000000000000000000000000000000000000000"
+    abi: "0x"
+    chainID: "1"
+    chainName: "eth-mainnet"
+  - address: "0x0000000000000000000000000000000000000000"
+    abi: "0x"
+    chainID: "1"
+    chainName: "eth-mainnet"
+    
