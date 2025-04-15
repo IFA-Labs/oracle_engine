@@ -29,8 +29,4 @@ contracts:
     abi: "0x"
     chainID: "1"
     chainName: "eth-mainnet"
-  - address: "0x0000000000000000000000000000000000000000"
-    abi: "0x"
-    chainID: "1"
-    chainName: "eth-mainnet"
-    
+    rpc: "https://mainnet.infura.io/v3/"

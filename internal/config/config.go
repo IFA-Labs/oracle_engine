@@ -15,6 +15,7 @@ type FeedConfig struct {
 
 type ContractConfig struct {
 	Address   string `mapstructure:"address"`
+	RPC       string `mapstructure:"rpc"`
 	ABI       string `mapstructure:"abi"`
 	ChainID   string `mapstructure:"chainID"`
 	ChainName string `mapstructure:"chainName"`
@@ -36,6 +37,7 @@ type Config struct {
 	Assets          []AssetConfig    `mapstructure:"assets"`
 	ApiKeys         ApiKey           `mapstructure:"api_keys"`
 	Contracts       []ContractConfig `mapstructure:"contracts"`
+	PrivateKey      string           `mapstructure:"private_key"`
 }
 
 func Load() *Config {
