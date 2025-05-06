@@ -21,6 +21,15 @@ type Price struct {
 	Source                string    `json:"source"`
 }
 
+type RawPrice struct {
+	ID        string    `json:"id"`
+	Source    string    `json:"source"`
+	ReqURL    string    `json:"req_url"`
+	Value     float64   `json:"value"`
+	Expo      int8      `json:"expo"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
 type AssetFeed struct {
 	feed  config.FeedConfig
 	asset string

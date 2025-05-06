@@ -56,6 +56,16 @@ func (t *TimescaleDB) Initialize(ctx context.Context) error {
             price_timestamp TIMESTAMPTZ NOT NULL,
             metadata JSONB
         );
+
+		-- Create raw_price table
+		CREATE TABLE IF NOT EXISTS raw_prices (
+			id TEXT PRIMARY KEY,
+			source TEXT NOT NULL,
+			req_url TEXT NOT NULL,
+			value FLOAT8 NOT NULL,
+            expo SMALLINT NOT NULL,
+			timestamp TIMESTAMPTZ NOT NULL,
+		)
     `
 	_, err := t.db.ExecContext(ctx, query)
 	if err != nil {
@@ -171,4 +181,20 @@ func (t *TimescaleDB) GetIssuance(ctx context.Context, id string) (*models.Issua
 		return nil, err
 	}
 	return &issuance, nil
+}
+
+func (t *TimescaleDB) SaveRawPrice(ctx context.Context, rawPrice models.RawPrice) error {
+	query := `
+        INSERT INTO raw_prices (id, source, req_url, value, expo, timestamp)
+        VALUES ($1, $2, $3, $4, $5, $6)
+    `
+	_, err := t.db.ExecContext(ctx, query,
+		rawPrice.ID,
+		rawPrice.Source,
+		rawPrice.ReqURL,
+		rawPrice.Value,
+		rawPrice.Expo,
+		rawPrice.Timestamp,
+	)
+	return err
 }

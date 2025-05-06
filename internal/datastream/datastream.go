@@ -3,6 +3,7 @@ package datastream
 import (
 	"context"
 	"oracle_engine/internal/config"
+	"oracle_engine/internal/database/timescale"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
 	"time"
@@ -13,11 +14,12 @@ import (
 type DataStream struct {
 	feeds map[string]PriceFeed
 	out   chan models.Price
+	db    *timescale.TimescaleDB
 }
 
-func New(cfg *config.Config, out chan models.Price) *DataStream {
+func New(cfg *config.Config, out chan models.Price, db *timescale.TimescaleDB) *DataStream {
 	feeds := make(map[string]PriceFeed)
-	return &DataStream{feeds: feeds, out: out}
+	return &DataStream{feeds: feeds, out: out, db: db}
 }
 
 func (ds *DataStream) RegisterFeed(feed PriceFeed) {
@@ -63,6 +65,25 @@ func (ds *DataStream) runFeed(ctx context.Context, asset string, assetId string,
 					zap.Error(err))
 				continue
 			}
+
+			// Save raw price to the database
+			rawPrice := models.RawPrice{
+				ID:        price.InternalAssetIdentity,
+				Source:    feed.Name(),
+				ReqURL:    "", // Assuming the feed has a method to get the request URL
+				Value:     price.Value,
+				Expo:      price.Expo,
+				Timestamp: price.Timestamp,
+			}
+			err = ds.db.SaveRawPrice(ctx, rawPrice) // Save raw price
+			if err != nil {
+				logging.Logger.Error("Failed to save raw price",
+					zap.String("feed", feed.Name()),
+					zap.String("asset", asset),
+					zap.Error(err))
+				continue
+			}
+
 			price.Asset = asset
 			if feed.Name() != "pyth" {
 				continue

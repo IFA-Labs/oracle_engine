@@ -20,8 +20,6 @@ import (
 	"syscall"
 
 	_ "oracle_engine/docs"
-
-	"go.uber.org/zap"
 )
 
 func main() {
@@ -35,18 +33,12 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Initialize Data Stream
-	priceCh := make(chan models.Price, 100)
-	ds := datastream.New(cfg, priceCh)
+	// DB
 	db, _ := timescale.NewTimescaleDB("postgres://user:pass@timescale:5432/oracle")
 
-	l, err := db.GetLastPrice(ctx, "0xUSDT-x123")
-	if err != nil {
-		logging.Logger.Warn("----- Wrong", zap.Any("rec", err))
-	} else {
-
-		logging.Logger.Warn("----- Definitely", zap.Any("rec", l.Number()))
-	}
+	// Initialize Data Stream
+	priceCh := make(chan models.Price, 100)
+	ds := datastream.New(cfg, priceCh, db)
 
 	// Register feeds
 	ds.RegisterFeed(binance.New())
@@ -64,7 +56,7 @@ func main() {
 	aggr := aggregator.New(ctx, cfg)
 	go aggr.Run(ctx, pp.OutChannel())
 
-	consensus := consensus.New(relayer.New(), db)
+	consensus := consensus.New(relayer.New(cfg), db)
 	go consensus.Ambassador(ctx, aggr.AggrOutCh)
 
 	srv := server.New(cfg, consensus.IssuanceChan(), db)
