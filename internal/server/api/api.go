@@ -8,6 +8,7 @@ import (
 	"oracle_engine/internal/models"
 	"oracle_engine/internal/server/services"
 	"oracle_engine/internal/utils"
+	"strings"
 
 	"go.uber.org/zap"
 )
@@ -45,6 +46,15 @@ func (a *API) RegisterRoutes(mux *http.ServeMux) {
 
 	// Asset endpoints
 	mux.HandleFunc("/api/assets", a.handleAssets)
+
+	// Price audit endpoints
+	mux.HandleFunc("/api/prices/", func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/audit") {
+			a.handleAuditPrice(w, r)
+			return
+		}
+		http.NotFound(w, r)
+	})
 
 	// Swagger docs
 	mux.HandleFunc("/api/swagger/*", a.handleSwagger)
@@ -185,4 +195,47 @@ func (a *API) handleAssets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	json.NewEncoder(w).Encode(a.cfg.Assets)
+}
+
+// @Summary Get price audit
+// @Description Returns audit information for a specific price
+// @Tags prices
+// @Accept json
+// @Produce json
+// @Param id path string true "Price ID"
+// @Success 200 {object} map[string]interface{}
+// @Router /prices/{id}/audit [get]
+func (a *API) handleAuditPrice(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	path := r.URL.Path
+	if !strings.HasPrefix(path, "/api/prices/") || !strings.HasSuffix(path, "/audit") {
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
+
+	id := strings.TrimSuffix(strings.TrimPrefix(path, "/api/prices/"), "/audit")
+	if id == "" {
+		http.Error(w, "Price ID required", http.StatusBadRequest)
+		return
+	}
+
+	priceAudit, err := a.priceService.AuditPrice(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Failed to audit price", http.StatusInternalServerError)
+		return
+	}
+
+	resp := map[string]interface{}{
+		"id":            priceAudit.AggregatedPrice.ID,
+		"asset_id":      priceAudit.AssetID,
+		"price":         priceAudit.AggregatedPrice,
+		"raw_prices":    priceAudit.RawPrices,
+		"raw_count":     len(priceAudit.RawPrices),
+		"internalAsset": priceAudit.AggregatedPrice.Number(),
+	}
+	json.NewEncoder(w).Encode(resp)
 }

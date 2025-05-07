@@ -73,6 +73,7 @@ func (c *Consensus) processAggrPrice(
 	price models.UnifiedPrice,
 ) models.Issuance {
 	id := uuid.NewString()
+	// TODO: fetch more prices from db (last n prices)
 	lastPrice, err := c.db.GetLastPrice(ctx, price.AssetID)
 	if err != nil {
 		// handle error
@@ -81,5 +82,10 @@ func (c *Consensus) processAggrPrice(
 	}
 	lastPrices := []models.UnifiedPrice{*lastPrice}
 	issuance := weighted.CalculateWeightedAveragePrice(id, price, lastPrices)
+
+	// Save the aggregated price in price and link
+	// the batch through ids
+	c.db.LinkRawPricesToAggregatedPrice(ctx, issuance.Price.ID, price.ConnectedPriceIDs)
+
 	return issuance
 }

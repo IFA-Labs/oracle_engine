@@ -5,9 +5,11 @@ import (
 	"math"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
+	"oracle_engine/internal/utils"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -78,6 +80,7 @@ func threadUnitCalculateBatchAverage(
 	avg := (firstPrice.Value + batch[len(batch)-1].Value) / 2
 
 	sum := 0.0
+	connectedPriceIDs := make([]string, len(batch))
 	for _, p := range batch {
 		pn := p.Value
 		devPerc := math.Abs(pn-avg) / avg
@@ -85,19 +88,25 @@ func threadUnitCalculateBatchAverage(
 			continue
 		}
 		sum += pn
+		connectedPriceIDs = append(connectedPriceIDs, p.ID)
 	}
 	avg = sum / float64(len(batch))
 
 	logging.Logger.Warn("---compute babe-- ret", zap.Any("k", avg))
 	// some other calc
 	// source aggr and hash gen
+	// ------ Sys aggregated price
 	avgPrice := models.UnifiedPrice{
-		Value:     avg,
-		AssetID:   firstPrice.AssetID,
-		Expo:      firstPrice.Expo, // still -18
-		Timestamp: time.Now(),
-		Source:    "ifa_labs",
-		ReqHash:   "todo",
+		ID:                uuid.NewString(),
+		Value:             avg,
+		AssetID:           firstPrice.AssetID,
+		Expo:              firstPrice.Expo, // still -18
+		Timestamp:         time.Now(),
+		Source:            "ifa_labs",
+		ReqHash:           utils.HashWithSource("ifa_labs"),
+		IsAggr:            true,
+		ConnectedPriceIDs: connectedPriceIDs,
 	}
+
 	*outgoingCh <- avgPrice
 }

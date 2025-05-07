@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -74,6 +75,8 @@ func (p *PythFeed) FetchPrice(ctx context.Context, assetID string, internalAsset
 		Timestamp:             time.Now(),
 		Source:                p.Name(),
 		InternalAssetIdentity: internalAssetId,
+		ID:                    uuid.NewString(),
+		ReqURL:                fullURL,
 	}, nil
 }
 

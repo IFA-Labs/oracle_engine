@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
@@ -99,5 +100,17 @@ func (r *Relayer) ConveyIssuanceToContract(ctx context.Context, issuance *models
 	auth.GasLimit = uint64(300000) // in units
 	auth.GasPrice = gasPrice
 
+	address := common.HexToAddress(ctrct.Address)
+	// instance, err := store.NewStore(address, client)
+	// if err != nil {
+	//   log.Fatal(err)
+	// }
+
+	// just set up asset key as bytes here
+	var assetID [32]byte
+	copy(assetID[:], []byte(issuance.Price.AssetID))
+
 	return nil
 }
+
+// abigen --bin=./build/Store.bin --abi=./build/Store.abi --pkg=store --out=Store.go

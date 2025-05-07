@@ -9,6 +9,7 @@ import (
 type PriceService interface {
 	GetLastPrice(ctx context.Context, assetID string) (*models.UnifiedPrice, error)
 	SavePrice(ctx context.Context, price models.UnifiedPrice) error
+	AuditPrice(ctx context.Context, assetID string) (*models.PriceAudit, error)
 }
 
 type priceService struct {
@@ -25,4 +26,8 @@ func (s *priceService) GetLastPrice(ctx context.Context, assetID string) (*model
 
 func (s *priceService) SavePrice(ctx context.Context, price models.UnifiedPrice) error {
 	return s.priceRepo.SavePrice(ctx, price)
+}
+
+func (s *priceService) AuditPrice(ctx context.Context, assetID string) (*models.PriceAudit, error) {
+	return s.priceRepo.AuditPrice(ctx, assetID)
 }

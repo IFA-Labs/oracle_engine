@@ -9,6 +9,7 @@ import (
 type PriceRepository interface {
 	SavePrice(ctx context.Context, price models.UnifiedPrice) error
 	GetLastPrice(ctx context.Context, assetID string) (*models.UnifiedPrice, error)
+	AuditPrice(ctx context.Context, assetID string) (*models.PriceAudit, error)
 }
 
 type priceRepository struct {
@@ -25,4 +26,8 @@ func (r *priceRepository) SavePrice(ctx context.Context, price models.UnifiedPri
 
 func (r *priceRepository) GetLastPrice(ctx context.Context, assetID string) (*models.UnifiedPrice, error) {
 	return r.db.GetLastPrice(ctx, assetID)
+}
+
+func (r *priceRepository) AuditPrice(ctx context.Context, assetID string) (*models.PriceAudit, error) {
+	return r.db.AuditPrice(ctx, assetID)
 }

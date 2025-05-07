@@ -13,21 +13,14 @@ import (
 const TargetExpo int = 18
 
 type Price struct {
+	ID                    string    `json:"id"`
 	Asset                 string    `json:"asset"`
 	InternalAssetIdentity string    `json:"internal_asset_identity"`
+	Source                string    `json:"source"`
+	ReqURL                string    `json:"req_url"`
 	Value                 float64   `json:"value"`
 	Expo                  int8      `json:"expo"`
 	Timestamp             time.Time `json:"timestamp"`
-	Source                string    `json:"source"`
-}
-
-type RawPrice struct {
-	ID        string    `json:"id"`
-	Source    string    `json:"source"`
-	ReqURL    string    `json:"req_url"`
-	Value     float64   `json:"value"`
-	Expo      int8      `json:"expo"`
-	Timestamp time.Time `json:"timestamp"`
 }
 
 type AssetFeed struct {
@@ -36,6 +29,7 @@ type AssetFeed struct {
 }
 
 type UnifiedPrice struct {
+	ID      string `json:"id"`
 	AssetID string `json:"assetID"`
 	// Cant use in64 due to overflow
 	Value     float64   `json:"value"`
@@ -43,6 +37,11 @@ type UnifiedPrice struct {
 	Timestamp time.Time `json:"timestamp"`
 	Source    string    `json:"source"`
 	ReqHash   string    `json:"req_hash"`
+	// this is req url but not for aggr price
+	ReqURL string `json:"req_url"`
+	// is aggregated
+	IsAggr            bool     `json:"is_aggr"`
+	ConnectedPriceIDs []string `json:"connected_price_ids"`
 }
 
 func (p Price) ToUnified() UnifiedPrice {
@@ -52,12 +51,15 @@ func (p Price) ToUnified() UnifiedPrice {
 	normalized := num * math.Pow10(TargetExpo)
 
 	return UnifiedPrice{
+		ID:        p.ID,
 		AssetID:   utils.GenerateIDForAsset(p.InternalAssetIdentity),
+		IsAggr:    false,
 		Value:     float64(normalized),
 		Expo:      int8(negativeExpo),
 		Timestamp: p.Timestamp,
 		Source:    p.Source,
 		ReqHash:   utils.HashWithSource(p.Source),
+		ReqURL:    p.ReqURL,
 	}
 }
 
@@ -109,4 +111,13 @@ type Issuance struct {
 	PriceSource    string        `json:"price_source"`
 	PriceTimestamp time.Time     `json:"price_timestamp"`
 	Metadata       interface{}   `json:"metadata"`
+}
+
+type PriceAudit struct {
+	PriceID         string       `json:"price_id"`
+	AssetID         string       `json:"asset_id"`
+	AggregatedPrice UnifiedPrice `json:"aggregated_price"`
+	RawPrices       []Price      `json:"raw_prices"`
+	CreatedAt       time.Time    `json:"created_at"`
+	UpdatedAt       time.Time    `json:"updated_at"`
 }

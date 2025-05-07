@@ -8,6 +8,7 @@ import (
 	"oracle_engine/internal/models"
 	"time"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -67,13 +68,21 @@ func (ds *DataStream) runFeed(ctx context.Context, asset string, assetId string,
 			}
 
 			// Save raw price to the database
-			rawPrice := models.RawPrice{
-				ID:        price.InternalAssetIdentity,
-				Source:    feed.Name(),
-				ReqURL:    "", // Assuming the feed has a method to get the request URL
-				Value:     price.Value,
-				Expo:      price.Expo,
-				Timestamp: price.Timestamp,
+			rawPrice := models.Price{
+				ID: func() string {
+					if price.ID == "" {
+						return uuid.NewString()
+					} else {
+						return price.ID
+					}
+				}(),
+				Source:                feed.Name(),
+				ReqURL:                price.ReqURL,
+				Value:                 price.Value,
+				Expo:                  price.Expo,
+				Timestamp:             price.Timestamp,
+				Asset:                 price.Asset,
+				InternalAssetIdentity: price.InternalAssetIdentity,
 			}
 			err = ds.db.SaveRawPrice(ctx, rawPrice) // Save raw price
 			if err != nil {
@@ -88,11 +97,11 @@ func (ds *DataStream) runFeed(ctx context.Context, asset string, assetId string,
 			if feed.Name() != "pyth" {
 				continue
 			}
-			ds.out <- *price
+			ds.out <- rawPrice
 			logging.Logger.Info("Price fetched",
-				zap.String("asset", price.Asset),
-				zap.Float64("value", price.Value),
-				zap.String("source", price.Source))
+				zap.String("asset", rawPrice.Asset),
+				zap.Float64("value", rawPrice.Value),
+				zap.String("source", rawPrice.Source))
 		}
 	}
 }
