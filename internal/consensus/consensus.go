@@ -85,7 +85,12 @@ func (c *Consensus) processAggrPrice(
 
 	// Save the aggregated price in price and link
 	// the batch through ids
-	c.db.LinkRawPricesToAggregatedPrice(ctx, issuance.Price.ID, price.ConnectedPriceIDs)
+	c.db.LinkRawPricesToAggregatedPrice(
+		ctx,
+		issuance.Price.ID,
+		issuance.PriceTimestamp,
+		price.ConnectedPriceIDs,
+	)
 
 	return issuance
 }

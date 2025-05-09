@@ -28,25 +28,22 @@ func NewTimescaleDB(connStr string) (*TimescaleDB, error) {
 }
 
 func (t *TimescaleDB) Initialize(ctx context.Context) error {
-	// Create tables and extensions
 	query := `
-    -- Required for UUID generation (PostgreSQL)
     CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
     CREATE TABLE IF NOT EXISTS prices (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        id UUID NOT NULL DEFAULT uuid_generate_v4(),
         asset_id TEXT NOT NULL,
         value FLOAT8 NOT NULL,
         expo SMALLINT NOT NULL,
         timestamp TIMESTAMPTZ NOT NULL,
         source TEXT NOT NULL,
-        req_hash TEXT
+        req_hash TEXT,
+        PRIMARY KEY (id, timestamp)
     );
 
-    -- Convert to hypertable for time-series optimization
     SELECT create_hypertable('prices', 'timestamp', if_not_exists => true);
 
-    -- Create raw_prices table
     CREATE TABLE IF NOT EXISTS raw_prices (
         id TEXT PRIMARY KEY,
         source TEXT NOT NULL,
@@ -56,14 +53,14 @@ func (t *TimescaleDB) Initialize(ctx context.Context) error {
         timestamp TIMESTAMPTZ NOT NULL
     );
 
-    -- Create join table for linking prices to raw_prices
     CREATE TABLE IF NOT EXISTS price_raw_price_links (
-        price_id UUID NOT NULL REFERENCES prices(id) ON DELETE CASCADE,
+        price_id UUID NOT NULL,
+        price_timestamp TIMESTAMPTZ NOT NULL,
         raw_price_id TEXT NOT NULL REFERENCES raw_prices(id) ON DELETE CASCADE,
-        PRIMARY KEY (price_id, raw_price_id)
+        PRIMARY KEY (price_id, raw_price_id),
+        FOREIGN KEY (price_id, price_timestamp) REFERENCES prices(id, timestamp) ON DELETE CASCADE
     );
 
-    -- Create issuances table
     CREATE TABLE IF NOT EXISTS issuances (
         id TEXT PRIMARY KEY,
         state SMALLINT NOT NULL,
@@ -77,7 +74,7 @@ func (t *TimescaleDB) Initialize(ctx context.Context) error {
         price_timestamp TIMESTAMPTZ NOT NULL,
         metadata JSONB
     );
-  `
+`
 	_, err := t.db.ExecContext(ctx, query)
 	if err != nil {
 		logging.Logger.Error("Failed to initialize database tables", zap.Error(err))
@@ -89,8 +86,8 @@ func (t *TimescaleDB) Initialize(ctx context.Context) error {
 
 func (t *TimescaleDB) SavePrice(ctx context.Context, price models.UnifiedPrice) error {
 	query := `
-        INSERT INTO prices (asset_id, value, expo, timestamp, source, req_hash)
-        VALUES ($1, $2, $3, $4, $5, $6)`
+        INSERT INTO prices (id, asset_id, value, expo, timestamp, source, req_hash)
+        VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6)`
 	_, err := t.db.ExecContext(ctx, query,
 		price.AssetID, price.Value, price.Expo, price.Timestamp, price.Source, price.ReqHash)
 	return err
@@ -122,13 +119,11 @@ func (t *TimescaleDB) GetLastPrice(ctx context.Context, assetID string) (*models
 }
 
 func (t *TimescaleDB) SaveIssuance(ctx context.Context, issuance models.Issuance) error {
-	// Only save the price if the issuance is accepted
 	if issuance.State == models.Approved {
-		// Create a UnifiedPrice for the prices table
 		price := models.UnifiedPrice{
 			AssetID:   issuance.PriceAssetID,
 			Value:     issuance.PriceValue,
-			Expo:      issuance.Price.Expo, // Since we're storing with 5 decimal places
+			Expo:      issuance.Price.Expo,
 			Timestamp: issuance.PriceTimestamp,
 			Source:    issuance.PriceSource,
 		}
@@ -137,7 +132,6 @@ func (t *TimescaleDB) SaveIssuance(ctx context.Context, issuance models.Issuance
 		}
 	}
 
-	// Always save the issuance
 	query := `
         INSERT INTO issuances (
             id, state, issuer_address, round_id, created_at, updated_at,
@@ -210,14 +204,14 @@ func (t *TimescaleDB) SaveRawPrice(ctx context.Context, price models.Price) erro
 	return err
 }
 
-func (t *TimescaleDB) LinkRawPricesToAggregatedPrice(ctx context.Context, aggregatedPriceID string, rawPriceIDs []string) error {
+func (t *TimescaleDB) LinkRawPricesToAggregatedPrice(ctx context.Context, aggregatedPriceID string, timestamp time.Time, rawPriceIDs []string) error {
 	query := `
-        INSERT INTO price_raw_price_links (price_id, raw_price_id)
-        VALUES ($1, $2)
+        INSERT INTO price_raw_price_links (price_id, price_timestamp, raw_price_id)
+        VALUES ($1, $2, $3)
         ON CONFLICT DO NOTHING
     `
 	for _, rawID := range rawPriceIDs {
-		_, err := t.db.ExecContext(ctx, query, aggregatedPriceID, rawID)
+		_, err := t.db.ExecContext(ctx, query, aggregatedPriceID, timestamp, rawID)
 		if err != nil {
 			return err
 		}
@@ -230,6 +224,8 @@ func (t *TimescaleDB) AuditPrice(ctx context.Context, id string) (*models.PriceA
         SELECT id, asset_id, value, expo, timestamp, source, req_hash
         FROM prices
         WHERE id = $1
+        ORDER BY timestamp DESC
+        LIMIT 1
     `
 	var up models.UnifiedPrice
 	err := t.db.QueryRowContext(ctx, priceQuery, id).Scan(
@@ -262,12 +258,12 @@ func (t *TimescaleDB) AuditPrice(ctx context.Context, id string) (*models.PriceA
 	}
 
 	auditData := models.PriceAudit{
-		PriceID: 	up.ID,
-		AssetID: up.AssetID,
+		PriceID:         up.ID,
+		AssetID:         up.AssetID,
 		AggregatedPrice: up,
-		RawPrices:    raws,
-		CreatedAt: up.Timestamp,
-		UpdatedAt: up.Timestamp,
+		RawPrices:       raws,
+		CreatedAt:       up.Timestamp,
+		UpdatedAt:       up.Timestamp,
 	}
 
 	return &auditData, nil

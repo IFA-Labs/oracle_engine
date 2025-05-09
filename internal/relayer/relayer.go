@@ -6,13 +6,17 @@ import (
 	"fmt"
 	"math/big"
 	"oracle_engine/internal/config"
+	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
 	"strconv"
+
+	"oracle_engine/internal/database/timescale"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"go.uber.org/zap"
 )
 
 // / Relayer is a service that takes issuances requests
@@ -22,12 +26,14 @@ import (
 type Relayer struct {
 	cfg                 *config.Config
 	assetToRoutineChMap map[string]chan *models.Issuance
+	db                  *timescale.TimescaleDB
 }
 
-func New(config *config.Config) *Relayer {
+func New(config *config.Config, db *timescale.TimescaleDB) *Relayer {
 	return &Relayer{
 		cfg:                 config,
 		assetToRoutineChMap: make(map[string]chan *models.Issuance),
+		db:                  db,
 	}
 }
 
@@ -105,6 +111,7 @@ func (r *Relayer) ConveyIssuanceToContract(ctx context.Context, issuance *models
 	// if err != nil {
 	//   log.Fatal(err)
 	// }
+	logging.Logger.Info("add", zap.String("addr", address.String()))
 
 	// just set up asset key as bytes here
 	var assetID [32]byte

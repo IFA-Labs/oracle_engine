@@ -56,7 +56,7 @@ func main() {
 	aggr := aggregator.New(ctx, cfg)
 	go aggr.Run(ctx, pp.OutChannel())
 
-	consensus := consensus.New(relayer.New(cfg), db)
+	consensus := consensus.New(relayer.New(cfg, db), db)
 	go consensus.Ambassador(ctx, aggr.AggrOutCh)
 
 	srv := server.New(cfg, consensus.IssuanceChan(), db)
