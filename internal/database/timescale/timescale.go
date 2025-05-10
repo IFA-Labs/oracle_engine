@@ -94,9 +94,9 @@ func (t *TimescaleDB) Initialize(ctx context.Context) error {
 func (t *TimescaleDB) SavePrice(ctx context.Context, price models.UnifiedPrice) error {
 	query := `
         INSERT INTO prices (id, asset_id, value, expo, timestamp, source, req_hash)
-        VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6)`
+        VALUES ($1, $2, $3, $4, $5, $6, $7)`
 	_, err := t.db.ExecContext(ctx, query,
-		price.AssetID, price.Value, price.Expo, price.Timestamp, price.Source, price.ReqHash)
+		price.ID, price.AssetID, price.Value, price.Expo, price.Timestamp, price.Source, price.ReqHash)
 	return err
 }
 
