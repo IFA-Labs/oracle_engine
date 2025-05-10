@@ -53,7 +53,8 @@ func CalculateWeightedAveragePrice(
 	isDeviated = math.Abs(weightedAvg-mean) > deviationThreshold
 	state := models.Approved
 	if isDeviated {
-		state = models.Denied
+		// TODO: check other values before invalidating
+		// state = models.Denied
 	}
 
 	// Use diff of 5% only is approved
@@ -65,21 +66,33 @@ func CalculateWeightedAveragePrice(
 		if weightedAvg-mean > 0.05*mean {
 			state = models.Approved
 		} else {
-			state = models.Denied
+			// TODO: check other values before invalidating
+			// state = models.Denied
 		}
 	}
 
 	modPrice := currPrice
 	modPrice.Value = weightedAvg
 	logging.Logger.Info("issuance value",
+		zap.Any("usual str", modPrice.ID),
 		zap.Any("val", modPrice.Value),
 		zap.Any("exp", modPrice.Expo),
 		zap.Any("nor", modPrice.Number()),
+		zap.Any("xnor", modPrice),
 	)
 
 	return models.Issuance{
-		ID:    id,
-		State: state,
-		Price: modPrice,
+		ID:             id,
+		State:          state,
+		Price:          modPrice,
+		PriceValue:     modPrice.Number(),
+		PriceAssetID:   modPrice.AssetID,
+		PriceTimestamp: modPrice.Timestamp,
+		IssuerAddress:  "",
+		RoundID:        0,
+		CreatedAt:      modPrice.Timestamp,
+		UpdatedAt:      modPrice.Timestamp,
+		PriceSource:    modPrice.Source,
+		Metadata:       modPrice.ConnectedPriceIDs,
 	}
 }

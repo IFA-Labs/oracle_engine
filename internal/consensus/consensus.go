@@ -55,6 +55,10 @@ func (c *Consensus) Ambassador(ctx context.Context, incomingCh aggregator.AggrUn
 				zap.Any("name", p.AssetID),
 				zap.Any("avg", p.Number()),
 			)
+			if p.AssetID == "" {
+				logging.Logger.Info("Invalid------------")
+				continue
+			}
 			tmpIssuanceCh <- c.processAggrPrice(ctx, p)
 		case issuance := <-tmpIssuanceCh:
 			c.handleIssuance(ctx, issuance)
@@ -64,7 +68,6 @@ func (c *Consensus) Ambassador(ctx context.Context, incomingCh aggregator.AggrUn
 
 func (c *Consensus) handleIssuance(ctx context.Context, issuance models.Issuance) {
 	logging.Logger.Info("Issuance", zap.Int("num", int(issuance.Price.Number())))
-	c.db.SaveIssuance(ctx, issuance)
 	c.issuanceCh <- issuance
 }
 
@@ -83,12 +86,16 @@ func (c *Consensus) processAggrPrice(
 	lastPrices := []models.UnifiedPrice{*lastPrice}
 	issuance := weighted.CalculateWeightedAveragePrice(id, price, lastPrices)
 
+	logging.Logger.Info("Isk", zap.Any("iss", price))
+
 	// Save the aggregated price in price and link
+	c.db.SaveIssuance(ctx, issuance)
+
 	// the batch through ids
 	c.db.LinkRawPricesToAggregatedPrice(
 		ctx,
 		issuance.Price.ID,
-		issuance.PriceTimestamp,
+		price.Timestamp,
 		price.ConnectedPriceIDs,
 	)
 

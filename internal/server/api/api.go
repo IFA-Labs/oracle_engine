@@ -225,7 +225,7 @@ func (a *API) handleAuditPrice(w http.ResponseWriter, r *http.Request) {
 
 	priceAudit, err := a.priceService.AuditPrice(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Failed to audit price", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Failed to audit price, %v", err), http.StatusInternalServerError)
 		return
 	}
 

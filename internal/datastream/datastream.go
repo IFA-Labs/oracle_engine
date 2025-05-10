@@ -6,6 +6,7 @@ import (
 	"oracle_engine/internal/database/timescale"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
+	"oracle_engine/internal/utils"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,7 +36,7 @@ func (ds *DataStream) Start(ctx context.Context, cfg *config.Config) {
 		for _, feedCfg := range asset.Feeds {
 			feed := ds.feeds[feedCfg.Name]
 			feedAssetID := feedCfg.AssetID
-			feedInternalAssetID := asset.InternalAssetIdentity
+			feedInternalAssetID := utils.GenerateIDForAsset(asset.InternalAssetIdentity)
 			// if feed doesn't exist, just move on meaning the asset doesn't support feed
 			if feed == nil {
 				// logging.Logger.Warn("Unknown feed", zap.String("name", feedCfg.Name))
@@ -59,7 +60,7 @@ func (ds *DataStream) runFeed(ctx context.Context, asset string, assetId string,
 			return
 		case <-ticker.C:
 			price, err := feed.FetchPrice(ctx, assetId, internalAssetIdentity)
-			if err != nil {
+			if err != nil || price.InternalAssetIdentity == "" {
 				logging.Logger.Error("Fetch failed",
 					zap.String("feed", feed.Name()),
 					zap.String("asset", asset),
@@ -83,6 +84,9 @@ func (ds *DataStream) runFeed(ctx context.Context, asset string, assetId string,
 				Timestamp:             price.Timestamp,
 				Asset:                 price.Asset,
 				InternalAssetIdentity: price.InternalAssetIdentity,
+			}
+			if rawPrice.InternalAssetIdentity == "" {
+				continue
 			}
 			err = ds.db.SaveRawPrice(ctx, rawPrice) // Save raw price
 			if err != nil {

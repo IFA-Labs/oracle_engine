@@ -82,6 +82,10 @@ func threadUnitCalculateBatchAverage(
 	sum := 0.0
 	connectedPriceIDs := make([]string, len(batch))
 	for _, p := range batch {
+		// TODO: check here for empty ids
+		if p.ID == "" {
+			continue
+		}
 		pn := p.Value
 		devPerc := math.Abs(pn-avg) / avg
 		if devPerc > float64(aggr_dev_perc) {

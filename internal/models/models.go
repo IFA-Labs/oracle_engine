@@ -52,7 +52,7 @@ func (p Price) ToUnified() UnifiedPrice {
 
 	return UnifiedPrice{
 		ID:        p.ID,
-		AssetID:   utils.GenerateIDForAsset(p.InternalAssetIdentity),
+		AssetID:   p.InternalAssetIdentity,
 		IsAggr:    false,
 		Value:     float64(normalized),
 		Expo:      int8(negativeExpo),
@@ -102,7 +102,7 @@ type Issuance struct {
 	ID             string        `json:"issuance_id"`
 	State          IssuanceState `json:"issuance_state"`
 	IssuerAddress  string        `json:"issuer_address"`
-	RoundID        string        `json:"round_id"`
+	RoundID        uint64        `json:"round_id"`
 	CreatedAt      time.Time     `json:"created_at"`
 	UpdatedAt      time.Time     `json:"updated_at"`
 	Price          UnifiedPrice  `json:"price"`

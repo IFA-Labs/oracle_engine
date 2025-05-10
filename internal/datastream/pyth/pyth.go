@@ -75,6 +75,7 @@ func (p *PythFeed) FetchPrice(ctx context.Context, assetID string, internalAsset
 		Timestamp:             time.Now(),
 		Source:                p.Name(),
 		InternalAssetIdentity: internalAssetId,
+		Asset:                 assetID,
 		ID:                    uuid.NewString(),
 		ReqURL:                fullURL,
 	}, nil
