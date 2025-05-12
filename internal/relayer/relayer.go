@@ -9,6 +9,7 @@ import (
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
 	"oracle_engine/internal/utils"
+	"os"
 	"strconv"
 
 	"oracle_engine/internal/database/timescale"
@@ -81,7 +82,15 @@ func (r *Relayer) startRoutine(ctx context.Context, assetID string) {
 
 func (r *Relayer) ConveyIssuanceToContract(ctx context.Context, issuance *models.Issuance, ctrct config.ContractConfig) error {
 	logging.Logger.Info("Conveying issuance to contract", zap.String("assetID", issuance.Price.AssetID), zap.String("contract", ctrct.Address))
-	client, err := ethclient.Dial(ctrct.RPC)
+	rpcUrl := ctrct.RPC
+	if rpcUrl == "" {
+		rpcUrl = os.Getenv("ALCHEMY_URL")
+		if rpcUrl == "" {
+			logging.Logger.Error("RPC URL not set")
+			return fmt.Errorf("RPC URL not set")
+		}
+	}
+	client, err := ethclient.Dial(rpcUrl)
 	if err != nil {
 		logging.Logger.Error("Failed to connect to Ethereum client", zap.Error(err))
 		return err
