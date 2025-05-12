@@ -39,6 +39,7 @@ type Config struct {
 	ApiKeys         ApiKey           `mapstructure:"api_keys"`
 	Contracts       []ContractConfig `mapstructure:"contracts"`
 	PrivateKey      string           `mapstructure:"private_key"`
+	DB_URL          string           `mapstructure:"DB_URL"`
 }
 
 func Load() *Config {
@@ -66,6 +67,10 @@ func Load() *Config {
 
 	if cfg.PrivateKey == "" {
 		cfg.PrivateKey = os.Getenv("PRIVATE_KEY")
+	}
+
+	if cfg.DB_URL == "" {
+		cfg.DB_URL = os.Getenv("DB_URL")
 	}
 
 	return &cfg

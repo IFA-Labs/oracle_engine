@@ -8,6 +8,7 @@ import (
 	"oracle_engine/internal/config"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
+	"oracle_engine/internal/utils"
 	"strconv"
 
 	"oracle_engine/internal/database/timescale"
@@ -42,19 +43,31 @@ func New(config *config.Config, db *timescale.TimescaleDB) *Relayer {
 // / Start treat latest issuance with utmost priority
 // / Start a go routine for each issuance
 // / Each contract has its own go routine
-func (r *Relayer) Start(ctx context.Context, issuanceCh chan *models.Issuance) error {
+func (r *Relayer) Start(ctx context.Context) error {
 	for _, asset := range r.cfg.Assets {
-		r.assetToRoutineChMap[asset.InternalAssetIdentity] = make(chan *models.Issuance)
-		go r.startRoutine(ctx, asset.InternalAssetIdentity)
+		assetId := utils.GenerateIDForAsset(asset.InternalAssetIdentity)
+		r.assetToRoutineChMap[assetId] = make(chan *models.Issuance)
+		go r.startRoutine(ctx, assetId)
 	}
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case issuance := <-issuanceCh:
-			r.assetToRoutineChMap[issuance.Price.AssetID] <- issuance
-		}
+
+	for c := range ctx.Done() {
+		logging.Logger.Info("Relayer routine stopped", zap.Any("cause", c))
+		return ctx.Err()
 	}
+	return nil
+
+}
+
+func (r *Relayer) AcceptIssuance(issuance *models.Issuance) error {
+	logging.Logger.Info("Issuance accepted", zap.String("assetID", issuance.Price.AssetID))
+	if _, ok := r.assetToRoutineChMap[issuance.Price.AssetID]; !ok {
+		return fmt.Errorf("no routine found for assetID: %s", issuance.Price.AssetID)
+	}
+	// Send the issuance to the corresponding channel
+	// This will be picked up by the startRoutine function
+	logging.Logger.Info("Sending issuance to asset channel", zap.String("assetID", issuance.Price.AssetID))
+	r.assetToRoutineChMap[issuance.Price.AssetID] <- issuance
+	return nil
 }
 
 func (r *Relayer) startRoutine(ctx context.Context, assetID string) {
@@ -67,18 +80,22 @@ func (r *Relayer) startRoutine(ctx context.Context, assetID string) {
 }
 
 func (r *Relayer) ConveyIssuanceToContract(ctx context.Context, issuance *models.Issuance, ctrct config.ContractConfig) error {
+	logging.Logger.Info("Conveying issuance to contract", zap.String("assetID", issuance.Price.AssetID), zap.String("contract", ctrct.Address))
 	client, err := ethclient.Dial(ctrct.RPC)
 	if err != nil {
+		logging.Logger.Error("Failed to connect to Ethereum client", zap.Error(err))
 		return err
 	}
 	privateKey, err := crypto.HexToECDSA(r.cfg.PrivateKey)
 	if err != nil {
+		logging.Logger.Error("Failed to load private key", zap.Error(err))
 		return err
 	}
 
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
+		logging.Logger.Error("Failed to assert public key type", zap.Error(err))
 		return fmt.Errorf("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
 	}
 
@@ -86,20 +103,24 @@ func (r *Relayer) ConveyIssuanceToContract(ctx context.Context, issuance *models
 
 	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
 	if err != nil {
+		logging.Logger.Error("Failed to get nonce", zap.Error(err))
 		return err
 	}
 
 	gasPrice, err := client.SuggestGasPrice(context.Background())
 	if err != nil {
+		logging.Logger.Error("Failed to suggest gas price", zap.Error(err))
 		return err
 	}
 
 	chainID, err := strconv.ParseInt(ctrct.ChainID, 10, 64)
 	if err != nil {
+		logging.Logger.Error("Failed to parse chain ID", zap.Error(err))
 		return err
 	}
 	auth, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(chainID))
 	if err != nil {
+		logging.Logger.Error("Failed to create new keyed transactor", zap.Error(err))
 		return err
 	}
 
@@ -112,6 +133,7 @@ func (r *Relayer) ConveyIssuanceToContract(ctx context.Context, issuance *models
 	// Load the verifier contract
 	contract, err := importVerifier.NewVerifier(address, client)
 	if err != nil {
+		logging.Logger.Error("Failed to load verifier contract", zap.Error(err))
 		return fmt.Errorf("failed to load verifier contract: %w", err)
 	}
 
@@ -131,6 +153,7 @@ func (r *Relayer) ConveyIssuanceToContract(ctx context.Context, issuance *models
 
 	tx, err := contract.SubmitPriceFeed(auth, assetIndex, prices)
 	if err != nil {
+		logging.Logger.Error("Failed to submit price feed", zap.Error(err))
 		return fmt.Errorf("failed to submit price feed: %w", err)
 	}
 

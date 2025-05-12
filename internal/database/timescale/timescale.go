@@ -128,6 +128,7 @@ func (t *TimescaleDB) GetLastPrice(ctx context.Context, assetID string) (*models
 func (t *TimescaleDB) SaveIssuance(ctx context.Context, issuance models.Issuance) error {
 	if issuance.State == models.Approved {
 		if err := t.SavePrice(ctx, issuance.Price); err != nil {
+			logging.Logger.Info("Error saving price", zap.Any("err", err), zap.Any("price", issuance.Price.ID))
 			return err
 		}
 	}
@@ -233,7 +234,12 @@ func (t *TimescaleDB) LinkRawPricesToAggregatedPrice(ctx context.Context, aggreg
 	for _, rawID := range filtered {
 		_, err := t.db.ExecContext(ctx, query, aggregatedPriceID, timestamp, rawID)
 		if err != nil {
-			logging.Logger.Info("Killllllll", zap.Any("errrrr", err), zap.Any("str", rawID))
+			logging.Logger.Info(
+				"Killllllll",
+				zap.Any("errrrr", err), zap.Any("str", rawID),
+				zap.String("agg", aggregatedPriceID),
+				zap.Time("time", timestamp),
+			)
 			return err
 		}
 	}

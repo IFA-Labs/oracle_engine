@@ -34,7 +34,7 @@ func main() {
 	defer cancel()
 
 	// DB
-	db, _ := timescale.NewTimescaleDB("postgres://user:pass@timescale:5432/oracle")
+	db, _ := timescale.NewTimescaleDB(cfg.DB_URL)
 
 	// Initialize Data Stream
 	priceCh := make(chan models.Price, 100)
@@ -56,7 +56,8 @@ func main() {
 	aggr := aggregator.New(ctx, cfg)
 	go aggr.Run(ctx, pp.OutChannel())
 
-	consensus := consensus.New(relayer.New(cfg, db), db)
+	relayer := relayer.New(cfg, db)
+	consensus := consensus.New(relayer, db)
 	go consensus.Ambassador(ctx, aggr.AggrOutCh)
 
 	srv := server.New(cfg, consensus.IssuanceChan(), db)
