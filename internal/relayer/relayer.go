@@ -17,6 +17,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"go.uber.org/zap"
+
+	importVerifier "oracle_engine/pkg/abi"
 )
 
 // / Relayer is a service that takes issuances requests
@@ -107,15 +109,32 @@ func (r *Relayer) ConveyIssuanceToContract(ctx context.Context, issuance *models
 	auth.GasPrice = gasPrice
 
 	address := common.HexToAddress(ctrct.Address)
-	// instance, err := store.NewStore(address, client)
-	// if err != nil {
-	//   log.Fatal(err)
-	// }
-	logging.Logger.Info("add", zap.String("addr", address.String()))
+	// Load the verifier contract
+	contract, err := importVerifier.NewVerifier(address, client)
+	if err != nil {
+		return fmt.Errorf("failed to load verifier contract: %w", err)
+	}
 
-	// just set up asset key as bytes here
-	var assetID [32]byte
-	copy(assetID[:], []byte(issuance.Price.AssetID))
+	// Prepare inputs
+	assetIndex := [][32]byte{}
+	var key [32]byte
+	copy(key[:], []byte(issuance.Price.AssetID))
+	assetIndex = append(assetIndex, key)
+
+	prices := []importVerifier.IIfaPriceFeedPriceFeed{
+		{
+			Price:          big.NewInt(int64(issuance.Price.Value)),
+			Decimal:        int8(issuance.Price.Expo),
+			LastUpdateTime: uint64(issuance.Price.Timestamp.Unix()),
+		},
+	}
+
+	tx, err := contract.SubmitPriceFeed(auth, assetIndex, prices)
+	if err != nil {
+		return fmt.Errorf("failed to submit price feed: %w", err)
+	}
+
+	logging.Logger.Info("Submitted price feed", zap.String("tx", tx.Hash().Hex()))
 
 	return nil
 }

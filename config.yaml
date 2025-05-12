@@ -25,8 +25,8 @@ assets:
         interval: 50
         assetID: "NGN"
 contracts:
-  - address: "0x0000000000000000000000000000000000000000"
+  - address: "0xC08CbF336cC0D7163Ef260bF69137c8cA7AF2F3a"
     abi: "0x"
-    chainID: "1"
+    chainID: "84532"
     chainName: "eth-mainnet"
     rpc: "https://mainnet.infura.io/v3/"

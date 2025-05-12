@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 )
 
@@ -52,6 +53,8 @@ func Load() *Config {
 		"monierate": os.Getenv("MONIERATE_API_KEY"),
 	})
 
+	_ = godotenv.Load()
+
 	if err := viper.ReadInConfig(); err != nil {
 		log.Printf("Using defaults: %v", err)
 	}
@@ -60,5 +63,10 @@ func Load() *Config {
 	if err := viper.Unmarshal(&cfg); err != nil {
 		log.Fatalf("Config error: %v", err)
 	}
+
+	if cfg.PrivateKey == "" {
+		cfg.PrivateKey = os.Getenv("PRIVATE_KEY")
+	}
+
 	return &cfg
 }
