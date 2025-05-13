@@ -158,8 +158,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/models.PriceAudit"
                         }
                     }
                 }
@@ -230,6 +229,61 @@ const docTemplate = `{
                 "Approved",
                 "Confirmed"
             ]
+        },
+        "models.Price": {
+            "type": "object",
+            "properties": {
+                "asset": {
+                    "type": "string"
+                },
+                "expo": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "internal_asset_identity": {
+                    "type": "string"
+                },
+                "req_url": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "number"
+                }
+            }
+        },
+        "models.PriceAudit": {
+            "type": "object",
+            "properties": {
+                "aggregated_price": {
+                    "$ref": "#/definitions/models.UnifiedPrice"
+                },
+                "asset_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "price_id": {
+                    "type": "string"
+                },
+                "raw_prices": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Price"
+                    }
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
         },
         "models.UnifiedPrice": {
             "type": "object",

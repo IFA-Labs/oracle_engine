@@ -191,7 +191,7 @@ func (a *API) handleAssets(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path string true "Price ID"
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} models.PriceAudit
 // @Router /prices/{id}/audit [get]
 func (a *API) handleAuditPrice(c *gin.Context) {
 	id := c.Param("id")
@@ -204,13 +204,6 @@ func (a *API) handleAuditPrice(c *gin.Context) {
 		c.JSON(500, gin.H{"error": fmt.Sprintf("Failed to audit price, %v", err)})
 		return
 	}
-	resp := map[string]interface{}{
-		"id":            priceAudit.AggregatedPrice.ID,
-		"asset_id":      priceAudit.AssetID,
-		"price":         priceAudit.AggregatedPrice,
-		"raw_prices":    priceAudit.RawPrices,
-		"raw_count":     len(priceAudit.RawPrices),
-		"internalAsset": priceAudit.AggregatedPrice.Number(),
-	}
-	c.JSON(200, resp)
+
+	c.JSON(200, priceAudit)
 }

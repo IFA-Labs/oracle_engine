@@ -44,6 +44,42 @@ definitions:
     - Denied
     - Approved
     - Confirmed
+  models.Price:
+    properties:
+      asset:
+        type: string
+      expo:
+        type: integer
+      id:
+        type: string
+      internal_asset_identity:
+        type: string
+      req_url:
+        type: string
+      source:
+        type: string
+      timestamp:
+        type: string
+      value:
+        type: number
+    type: object
+  models.PriceAudit:
+    properties:
+      aggregated_price:
+        $ref: '#/definitions/models.UnifiedPrice'
+      asset_id:
+        type: string
+      created_at:
+        type: string
+      price_id:
+        type: string
+      raw_prices:
+        items:
+          $ref: '#/definitions/models.Price'
+        type: array
+      updated_at:
+        type: string
+    type: object
   models.UnifiedPrice:
     properties:
       assetID:
@@ -138,8 +174,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/models.PriceAudit'
       summary: Get price audit
       tags:
       - prices
