@@ -11,14 +11,17 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
+
+	_ "oracle_engine/docs"
+
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 // @title Oracle Engine API
 // @version 1.0
 // @description API for accessing oracle price data and issuances
-// @host localhost:5001
+// @host 146.190.186.116:8000
 // @BasePath /api
-
 type API struct {
 	priceService    services.PriceService
 	issuanceService services.IssuanceService
@@ -36,6 +39,7 @@ func NewAPI(priceService services.PriceService, issuanceService services.Issuanc
 }
 
 func (a *API) RegisterRoutes(mux *http.ServeMux) {
+
 	// Price endpoints
 	mux.HandleFunc("/api/prices/last", a.handleLastPrice)
 	mux.HandleFunc("/api/prices/stream", a.handlePriceStream)
@@ -57,8 +61,14 @@ func (a *API) RegisterRoutes(mux *http.ServeMux) {
 	})
 
 	// Swagger docs
-	mux.HandleFunc("/api/swagger/*", a.handleSwagger)
 	mux.HandleFunc("/api/swagger.json", a.handleSwagger)
+	mux.HandleFunc("/swagger/", func(w http.ResponseWriter, r *http.Request) {
+		httpSwagger.Handler(
+			httpSwagger.URL(
+				"http://localhost:8000/api/swagger.json",
+			),
+		)
+	})
 }
 
 // @Summary Get last price for an asset
