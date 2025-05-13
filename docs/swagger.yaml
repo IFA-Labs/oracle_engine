@@ -48,7 +48,7 @@ definitions:
         description: Normalized price value with 5 decimal places
         type: number
       round_id:
-        type: string
+        type: integer
       updated_at:
         type: string
     type: object
@@ -66,9 +66,21 @@ definitions:
     properties:
       assetID:
         type: string
+      connected_price_ids:
+        items:
+          type: string
+        type: array
       expo:
         type: integer
+      id:
+        type: string
+      is_aggr:
+        description: is aggregated
+        type: boolean
       req_hash:
+        type: string
+      req_url:
+        description: this is req url but not for aggr price
         type: string
       source:
         type: string
@@ -121,6 +133,28 @@ paths:
       summary: Get issuance details
       tags:
       - issuances
+  /prices/{id}/audit:
+    get:
+      consumes:
+      - application/json
+      description: Returns audit information for a specific price
+      parameters:
+      - description: Price ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get price audit
+      tags:
+      - prices
   /prices/last:
     get:
       consumes:

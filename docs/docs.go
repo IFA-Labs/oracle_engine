@@ -123,6 +123,39 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/prices/{id}/audit": {
+            "get": {
+                "description": "Returns audit information for a specific price",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "prices"
+                ],
+                "summary": "Get price audit",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Price ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -195,7 +228,7 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "round_id": {
-                    "type": "string"
+                    "type": "integer"
                 },
                 "updated_at": {
                     "type": "string"
@@ -221,10 +254,27 @@ const docTemplate = `{
                 "assetID": {
                     "type": "string"
                 },
+                "connected_price_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "expo": {
                     "type": "integer"
                 },
+                "id": {
+                    "type": "string"
+                },
+                "is_aggr": {
+                    "description": "is aggregated",
+                    "type": "boolean"
+                },
                 "req_hash": {
+                    "type": "string"
+                },
+                "req_url": {
+                    "description": "this is req url but not for aggr price",
                     "type": "string"
                 },
                 "source": {
