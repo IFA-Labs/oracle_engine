@@ -12,18 +12,20 @@ services:
     depends_on:
       - redis
       - timescale
+    env_file:
+      - .env
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - POSTGRES_HOST=timescale
       - POSTGRES_PORT=5432
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=pass
-      - POSTGRES_DB=oracle
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
       - APP_ENV=dev
       - APP_USER=gorgeous-kata
     ports:
-      - "5001:5001"
+      - "8000:8000"
     networks:
       - oracle-net
 
@@ -41,10 +43,12 @@ services:
   timescale:
     image: timescale/timescaledb:latest-pg16
     container_name: timescale-dev
+    env_file:
+      - .env
     environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=pass
-      - POSTGRES_DB=oracle
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     volumes:
       - timescale-data:/var/lib/postgresql/data
     ports:

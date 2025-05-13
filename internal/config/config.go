@@ -40,6 +40,7 @@ type Config struct {
 	Contracts       []ContractConfig `mapstructure:"contracts"`
 	PrivateKey      string           `mapstructure:"private_key"`
 	DB_URL          string           `mapstructure:"DB_URL"`
+	SERVER_PORT     string           `mapstructure:"server_port"`
 }
 
 func Load() *Config {

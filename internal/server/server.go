@@ -53,9 +53,13 @@ func (s *Server) StartHTTPServer(ctx context.Context) {
 	handler := middleware.CORS(router)
 	handler = middleware.Logging(handler)
 	handler = middleware.Recovery(handler)
+	port := s.cfg.SERVER_PORT
+	if port == "" {
+		port = "5001"
+	}
 
 	server := &http.Server{
-		Addr:    ":5001",
+		Addr:    ":" + port,
 		Handler: handler,
 	}
 
