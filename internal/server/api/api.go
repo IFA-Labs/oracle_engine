@@ -3,25 +3,33 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
+	"io"
 	"oracle_engine/internal/config"
 	"oracle_engine/internal/models"
 	"oracle_engine/internal/server/services"
 	"oracle_engine/internal/utils"
-	"strings"
 
 	"go.uber.org/zap"
 
 	_ "oracle_engine/docs"
 
-	httpSwagger "github.com/swaggo/http-swagger"
+	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 // @title Oracle Engine API
 // @version 1.0
-// @description API for accessing oracle price data and issuances
-// @host 146.190.186.116:8000
+// @description API for accessing oracle price data and issuances also to audit prices
+// @host localhost:8000
+// @host http://146.190.186.116:8000
 // @BasePath /api
+// @contact.name   Grammyboy
+// @contact.url    ifa-labs
+// @contact.email  support@ifa-labs.com
+
+// @license.name  Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
 type API struct {
 	priceService    services.PriceService
 	issuanceService services.IssuanceService
@@ -38,37 +46,29 @@ func NewAPI(priceService services.PriceService, issuanceService services.Issuanc
 	}
 }
 
-func (a *API) RegisterRoutes(mux *http.ServeMux) {
-
+func (a *API) RegisterRoutes(router *gin.Engine) {
 	// Price endpoints
-	mux.HandleFunc("/api/prices/last", a.handleLastPrice)
-	mux.HandleFunc("/api/prices/stream", a.handlePriceStream)
+	router.GET("/api/prices/last", a.handleLastPrice)
+	router.GET("/api/prices/stream", a.handlePriceStream)
 
 	// Issuance endpoints
-	mux.HandleFunc("/api/issuances", a.handleIssuances)
-	mux.HandleFunc("/api/issuances/", a.handleIssuance)
+	router.POST("/api/issuances", a.handleIssuances)
+	router.GET("/api/issuances/:id", a.handleIssuance)
 
 	// Asset endpoints
-	mux.HandleFunc("/api/assets", a.handleAssets)
+	router.GET("/api/assets", a.handleAssets)
 
-	// Price audit endpoints
-	mux.HandleFunc("/api/prices/", func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/audit") {
-			a.handleAuditPrice(w, r)
-			return
-		}
-		http.NotFound(w, r)
-	})
+	// Price audit endpoint
+	router.GET("/api/prices/:id/audit", a.handleAuditPrice)
 
-	// Swagger docs
-	mux.HandleFunc("/api/swagger.json", a.handleSwagger)
-	mux.HandleFunc("/swagger/", func(w http.ResponseWriter, r *http.Request) {
-		httpSwagger.Handler(
-			httpSwagger.URL(
-				"http://localhost:8000/api/swagger.json",
-			),
-		)
-	})
+	url := ginSwagger.URL("http://localhost:8000/swagger/doc.json")
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
+
+	// Health check endpoint
+	router.GET("/api/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok"})
+	},
+	)
 }
 
 // @Summary Get last price for an asset
@@ -79,35 +79,30 @@ func (a *API) RegisterRoutes(mux *http.ServeMux) {
 // @Param asset query string false "Asset ID to get price for"
 // @Success 200 {object} map[string]float64
 // @Router /prices/last [get]
-func (a *API) handleLastPrice(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	asset := r.URL.Query().Get("asset")
+func (a *API) handleLastPrice(c *gin.Context) {
+	asset := c.Query("asset")
 	if asset == "" {
 		// Return all assets' last prices
 		prices := make(map[string]float64)
 		for _, assetConfig := range a.cfg.Assets {
-			price, err := a.priceService.GetLastPrice(r.Context(), utils.GenerateIDForAsset(assetConfig.InternalAssetIdentity))
+			price, err := a.priceService.GetLastPrice(c.Request.Context(), utils.GenerateIDForAsset(assetConfig.InternalAssetIdentity))
 			if err != nil {
 				zap.L().Error("Failed to fetch last price", zap.String("asset", assetConfig.Name), zap.Error(err))
 				continue
 			}
 			prices[utils.GenerateIDForAsset(assetConfig.InternalAssetIdentity)] = price.Number()
 		}
-		json.NewEncoder(w).Encode(prices)
+		c.JSON(200, prices)
 		return
 	}
 
 	// Single asset case
-	price, err := a.priceService.GetLastPrice(r.Context(), asset)
+	price, err := a.priceService.GetLastPrice(c.Request.Context(), asset)
 	if err != nil {
-		http.Error(w, "Failed to fetch last price", http.StatusInternalServerError)
+		c.JSON(500, gin.H{"error": "Failed to fetch last price"})
 		return
 	}
-	json.NewEncoder(w).Encode(map[string]float64{asset: price.Number()})
+	c.JSON(200, map[string]float64{asset: price.Number()})
 }
 
 // @Summary Stream price updates
@@ -116,53 +111,39 @@ func (a *API) handleLastPrice(w http.ResponseWriter, r *http.Request) {
 // @Produce text/event-stream
 // @Success 200 {string} string "SSE stream"
 // @Router /prices/stream [get]
-func (a *API) handlePriceStream(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
+func (a *API) handlePriceStream(c *gin.Context) {
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
 
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
-		return
-	}
-
-	ctx := r.Context()
-	for {
+	ctx := c.Request.Context()
+	c.Stream(func(w io.Writer) bool {
 		select {
 		case <-ctx.Done():
-			return
+			return false
 		case price := <-a.priceCh:
 			data, err := json.Marshal(price)
 			if err != nil {
 				zap.L().Error("Failed to marshal price", zap.Error(err))
-				continue
+				return true
 			}
 			fmt.Fprintf(w, "data: %s\n\n", data)
-			flusher.Flush()
+			return true
 		}
-	}
+	})
 }
 
-func (a *API) handleIssuances(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodPost:
-		var issuance models.Issuance
-		if err := json.NewDecoder(r.Body).Decode(&issuance); err != nil {
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
-
-		if err := a.issuanceService.SaveIssuance(r.Context(), issuance); err != nil {
-			http.Error(w, "Failed to save issuance", http.StatusInternalServerError)
-			return
-		}
-
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(issuance)
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+func (a *API) handleIssuances(c *gin.Context) {
+	var issuance models.Issuance
+	if err := c.ShouldBindJSON(&issuance); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request body"})
+		return
 	}
+	if err := a.issuanceService.SaveIssuance(c.Request.Context(), issuance); err != nil {
+		c.JSON(500, gin.H{"error": "Failed to save issuance"})
+		return
+	}
+	c.JSON(201, issuance)
 }
 
 // @Summary Get issuance details
@@ -173,38 +154,35 @@ func (a *API) handleIssuances(w http.ResponseWriter, r *http.Request) {
 // @Param id path string true "Issuance ID"
 // @Success 200 {object} models.Issuance
 // @Router /issuances/{id} [get]
-func (a *API) handleIssuance(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Path[len("/api/issuances/"):]
+func (a *API) handleIssuance(c *gin.Context) {
+	id := c.Param("id")
 	if id == "" {
-		http.Error(w, "Issuance ID required", http.StatusBadRequest)
+		c.JSON(400, gin.H{"error": "Issuance ID required"})
 		return
 	}
-
-	switch r.Method {
-	case http.MethodGet:
-		issuance, err := a.issuanceService.GetIssuance(r.Context(), id)
-		if err != nil {
-			http.Error(w, "Failed to get issuance", http.StatusInternalServerError)
-			return
-		}
-		json.NewEncoder(w).Encode(issuance)
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	issuance, err := a.issuanceService.GetIssuance(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Failed to get issuance"})
+		return
 	}
+	c.JSON(200, issuance)
 }
 
 // @Summary Get available assets
 // @Description Returns list of all available assets
 // @Tags assets
 // @Produce json
-// @Success 200 {array} config.AssetConfig
+// @Success 200 {array} models.AssetData
 // @Router /assets [get]
-func (a *API) handleAssets(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
+func (a *API) handleAssets(c *gin.Context) {
+	assetData := make([]models.AssetData, len(a.cfg.Assets))
+	for i, asset := range a.cfg.Assets {
+		assetData[i] = models.AssetData{
+			AssetID: utils.GenerateIDForAsset(asset.InternalAssetIdentity),
+			Asset:   asset.Name,
+		}
 	}
-	json.NewEncoder(w).Encode(a.cfg.Assets)
+	c.JSON(200, assetData)
 }
 
 // @Summary Get price audit
@@ -215,30 +193,17 @@ func (a *API) handleAssets(w http.ResponseWriter, r *http.Request) {
 // @Param id path string true "Price ID"
 // @Success 200 {object} map[string]interface{}
 // @Router /prices/{id}/audit [get]
-func (a *API) handleAuditPrice(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	path := r.URL.Path
-	if !strings.HasPrefix(path, "/api/prices/") || !strings.HasSuffix(path, "/audit") {
-		http.Error(w, "Invalid path", http.StatusBadRequest)
-		return
-	}
-
-	id := strings.TrimSuffix(strings.TrimPrefix(path, "/api/prices/"), "/audit")
+func (a *API) handleAuditPrice(c *gin.Context) {
+	id := c.Param("id")
 	if id == "" {
-		http.Error(w, "Price ID required", http.StatusBadRequest)
+		c.JSON(400, gin.H{"error": "Price ID required"})
 		return
 	}
-
-	priceAudit, err := a.priceService.AuditPrice(r.Context(), id)
+	priceAudit, err := a.priceService.AuditPrice(c.Request.Context(), id)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to audit price, %v", err), http.StatusInternalServerError)
+		c.JSON(500, gin.H{"error": fmt.Sprintf("Failed to audit price, %v", err)})
 		return
 	}
-
 	resp := map[string]interface{}{
 		"id":            priceAudit.AggregatedPrice.ID,
 		"asset_id":      priceAudit.AssetID,
@@ -247,5 +212,5 @@ func (a *API) handleAuditPrice(w http.ResponseWriter, r *http.Request) {
 		"raw_count":     len(priceAudit.RawPrices),
 		"internalAsset": priceAudit.AggregatedPrice.Number(),
 	}
-	json.NewEncoder(w).Encode(resp)
+	c.JSON(200, resp)
 }

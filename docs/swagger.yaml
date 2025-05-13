@@ -1,28 +1,10 @@
 basePath: /api
 definitions:
-  config.AssetConfig:
+  models.AssetData:
     properties:
-      feeds:
-        description: List of feeds
-        items:
-          $ref: '#/definitions/config.FeedConfig'
-        type: array
-      internalAssetIdentity:
-        description: eg "0xUSDT"
+      asset:
         type: string
-      name:
-        description: e.g., "BTC/USD"
-        type: string
-    type: object
-  config.FeedConfig:
-    properties:
-      assetID:
-        type: string
-      interval:
-        description: Seconds (e.g., 5)
-        type: integer
-      name:
-        description: e.g., "binance"
+      asset_id:
         type: string
     type: object
   models.Issuance:
@@ -90,10 +72,16 @@ definitions:
         description: Cant use in64 due to overflow
         type: number
     type: object
-host: localhost:5001
+host: http://146.190.186.116:8000
 info:
-  contact: {}
-  description: API for accessing oracle price data and issuances
+  contact:
+    email: support@ifa-labs.com
+    name: Grammyboy
+    url: ifa-labs
+  description: API for accessing oracle price data and issuances also to audit prices
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
   title: Oracle Engine API
   version: "1.0"
 paths:
@@ -107,7 +95,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/config.AssetConfig'
+              $ref: '#/definitions/models.AssetData'
             type: array
       summary: Get available assets
       tags:

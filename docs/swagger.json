@@ -1,12 +1,20 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "API for accessing oracle price data and issuances",
+        "description": "API for accessing oracle price data and issuances also to audit prices",
         "title": "Oracle Engine API",
-        "contact": {},
+        "contact": {
+            "name": "Grammyboy",
+            "url": "ifa-labs",
+            "email": "support@ifa-labs.com"
+        },
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+        },
         "version": "1.0"
     },
-    "host": "localhost:5001",
+    "host": "http://146.190.186.116:8000",
     "basePath": "/api",
     "paths": {
         "/assets": {
@@ -25,7 +33,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/config.AssetConfig"
+                                "$ref": "#/definitions/models.AssetData"
                             }
                         }
                     }
@@ -153,38 +161,13 @@
         }
     },
     "definitions": {
-        "config.AssetConfig": {
+        "models.AssetData": {
             "type": "object",
             "properties": {
-                "feeds": {
-                    "description": "List of feeds",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/config.FeedConfig"
-                    }
-                },
-                "internalAssetIdentity": {
-                    "description": "eg \"0xUSDT\"",
+                "asset": {
                     "type": "string"
                 },
-                "name": {
-                    "description": "e.g., \"BTC/USD\"",
-                    "type": "string"
-                }
-            }
-        },
-        "config.FeedConfig": {
-            "type": "object",
-            "properties": {
-                "assetID": {
-                    "type": "string"
-                },
-                "interval": {
-                    "description": "Seconds (e.g., 5)",
-                    "type": "integer"
-                },
-                "name": {
-                    "description": "e.g., \"binance\"",
+                "asset_id": {
                     "type": "string"
                 }
             }

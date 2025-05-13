@@ -12,6 +12,7 @@ import (
 	"oracle_engine/internal/server/repository"
 	"oracle_engine/internal/server/services"
 
+	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
@@ -44,7 +45,7 @@ func New(cfg *config.Config, priceCh chan models.Issuance, db *timescale.Timesca
 
 func (s *Server) StartHTTPServer(ctx context.Context) {
 	// Create router with middleware
-	router := http.NewServeMux()
+	router := gin.Default()
 
 	// Register routes
 	s.api.RegisterRoutes(router)
@@ -64,7 +65,7 @@ func (s *Server) StartHTTPServer(ctx context.Context) {
 	}
 
 	go func() {
-		logging.Logger.Info("Starting HTTP server on :5001")
+		logging.Logger.Info("Starting HTTP server on :", zap.String("port", port))
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logging.Logger.Error("HTTP server failed", zap.Error(err))
 		}

@@ -9,7 +9,15 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "contact": {},
+        "contact": {
+            "name": "Grammyboy",
+            "url": "ifa-labs",
+            "email": "support@ifa-labs.com"
+        },
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+        },
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
@@ -31,7 +39,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/config.AssetConfig"
+                                "$ref": "#/definitions/models.AssetData"
                             }
                         }
                     }
@@ -159,38 +167,13 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "config.AssetConfig": {
+        "models.AssetData": {
             "type": "object",
             "properties": {
-                "feeds": {
-                    "description": "List of feeds",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/config.FeedConfig"
-                    }
-                },
-                "internalAssetIdentity": {
-                    "description": "eg \"0xUSDT\"",
+                "asset": {
                     "type": "string"
                 },
-                "name": {
-                    "description": "e.g., \"BTC/USD\"",
-                    "type": "string"
-                }
-            }
-        },
-        "config.FeedConfig": {
-            "type": "object",
-            "properties": {
-                "assetID": {
-                    "type": "string"
-                },
-                "interval": {
-                    "description": "Seconds (e.g., 5)",
-                    "type": "integer"
-                },
-                "name": {
-                    "description": "e.g., \"binance\"",
+                "asset_id": {
                     "type": "string"
                 }
             }
@@ -295,11 +278,11 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "localhost:5001",
+	Host:             "http://146.190.186.116:8000",
 	BasePath:         "/api",
 	Schemes:          []string{},
 	Title:            "Oracle Engine API",
-	Description:      "API for accessing oracle price data and issuances",
+	Description:      "API for accessing oracle price data and issuances also to audit prices",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

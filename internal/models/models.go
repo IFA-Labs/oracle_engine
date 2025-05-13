@@ -121,3 +121,8 @@ type PriceAudit struct {
 	CreatedAt       time.Time    `json:"created_at"`
 	UpdatedAt       time.Time    `json:"updated_at"`
 }
+
+type AssetData struct {
+	AssetID string `json:"asset_id"`
+	Asset    string `json:"asset"`
+}
