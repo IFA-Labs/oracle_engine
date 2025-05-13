@@ -61,7 +61,7 @@ func (a *API) RegisterRoutes(router *gin.Engine) {
 	// Price audit endpoint
 	router.GET("/api/prices/:id/audit", a.handleAuditPrice)
 
-	url := ginSwagger.URL("http://localhost:8000/swagger/doc.json")
+	url := ginSwagger.URL("/swagger/doc.json")
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
 
 	// Health check endpoint
