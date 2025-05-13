@@ -114,14 +114,14 @@ const docTemplate = `{
         },
         "/prices/stream": {
             "get": {
-                "description": "Server-Sent Events stream of price updates",
+                "description": "Server-Sent Events stream of price updates, have a retry mechanism in place for break",
                 "produces": [
                     "text/event-stream"
                 ],
                 "tags": [
                     "prices"
                 ],
-                "summary": "Stream price updates",
+                "summary": "Model Stream price updates",
                 "responses": {
                     "200": {
                         "description": "SSE stream",
@@ -336,7 +336,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/api",
 	Schemes:          []string{},
 	Title:            "Oracle Engine API",
-	Description:      "IFA LABS oracle engine api provides real time prices for assets through an aggregated moving window algorithm. Functionalities includes fetching price/stream and auditing fetched price.",
+	Description:      "IFA LABS Oracle Engine API provides real-time, reliable asset prices using an aggregated moving window algorithm to ensure stability and reduce manipulation.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

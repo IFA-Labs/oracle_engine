@@ -1,10 +1,9 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"oracle_engine/internal/config"
+	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
 	"oracle_engine/internal/server/services"
 	"oracle_engine/internal/utils"
@@ -20,7 +19,7 @@ import (
 
 // @title Oracle Engine API
 // @version 1.0
-// @description IFA LABS oracle engine api provides real time prices for assets through an aggregated moving window algorithm. Functionalities includes fetching price/stream and auditing fetched price.
+// @description IFA LABS Oracle Engine API provides real-time, reliable asset prices using an aggregated moving window algorithm to ensure stability and reduce manipulation.
 // @host localhost:8000
 // @host 146.190.186.116:8000
 // @BasePath /api
@@ -34,14 +33,20 @@ type API struct {
 	priceService    services.PriceService
 	issuanceService services.IssuanceService
 	priceCh         chan models.Issuance
+	priceStreamer   *PriceStreamer
 	cfg             *config.Config
 }
 
 func NewAPI(priceService services.PriceService, issuanceService services.IssuanceService, priceCh chan models.Issuance, cfg *config.Config) *API {
+
+	priceStreamer := NewPriceStreamer(priceCh, logging.Logger)
+	priceStreamer.Start()
+
 	return &API{
 		priceService:    priceService,
 		issuanceService: issuanceService,
 		priceCh:         priceCh,
+		priceStreamer:   priceStreamer,
 		cfg:             cfg,
 	}
 }
@@ -49,7 +54,8 @@ func NewAPI(priceService services.PriceService, issuanceService services.Issuanc
 func (a *API) RegisterRoutes(router *gin.Engine) {
 	// Price endpoints
 	router.GET("/api/prices/last", a.handleLastPrice)
-	router.GET("/api/prices/stream", a.handlePriceStream)
+	// router.GET("/api/prices/stream", a.handlePriceStream)
+	router.GET("/api/prices/stream", a.priceStreamer.HandleStream)
 
 	// Issuance endpoints
 	router.POST("/api/issuances", a.handleIssuances)
@@ -109,29 +115,30 @@ func (a *API) handleLastPrice(c *gin.Context) {
 // @Description Server-Sent Events stream of price updates
 // @Tags prices
 // @Produce text/event-stream
-// @Success 200 {string} string "SSE stream"
+// @Success 200 {string} models.Issuance "SSE stream"
 // @Router /prices/stream [get]
-func (a *API) handlePriceStream(c *gin.Context) {
-	c.Writer.Header().Set("Content-Type", "text/event-stream")
-	c.Writer.Header().Set("Cache-Control", "no-cache")
-	c.Writer.Header().Set("Connection", "keep-alive")
+// func (a *API) handlePriceStream(c *gin.Context) {
+// 	c.Writer.Header().Set("Content-Type", "text/event-stream")
+// 	c.Writer.Header().Set("Cache-Control", "no-cache")
+// 	c.Writer.Header().Set("Connection", "keep-alive")
 
-	ctx := c.Request.Context()
-	c.Stream(func(w io.Writer) bool {
-		select {
-		case <-ctx.Done():
-			return false
-		case price := <-a.priceCh:
-			data, err := json.Marshal(price)
-			if err != nil {
-				zap.L().Error("Failed to marshal price", zap.Error(err))
-				return true
-			}
-			fmt.Fprintf(w, "data: %s\n\n", data)
-			return true
-		}
-	})
-}
+// 	ctx := c.Request.Context()
+// 	c.Stream(func(w io.Writer) bool {
+// 		select {
+// 		case <-ctx.Done():
+// 			return false
+// 		case price := <-a.priceCh:
+// 			data, err := json.Marshal(price)
+// 			if err != nil {
+// 				zap.L().Error("Failed to marshal price", zap.Error(err))
+// 				return true
+// 			}
+// 			logging.Logger.Info("Sending price update", zap.String("price", string(data)))
+// 			c.SSEvent("price", data)
+// 			return true
+// 		}
+// 	})
+// }
 
 func (a *API) handleIssuances(c *gin.Context) {
 	var issuance models.Issuance

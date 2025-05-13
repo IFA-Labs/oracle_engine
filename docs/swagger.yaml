@@ -114,9 +114,8 @@ info:
     email: ifalabstudio@gmail.com
     name: IfaLabs
     url: https://ifalabs.com
-  description: IFA LABS oracle engine api provides real time prices for assets through
-    an aggregated moving window algorithm. Functionalities includes fetching price/stream
-    and auditing fetched price.
+  description: IFA LABS Oracle Engine API provides real-time, reliable asset prices
+    using an aggregated moving window algorithm to ensure stability and reduce manipulation.
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
@@ -204,7 +203,8 @@ paths:
       - prices
   /prices/stream:
     get:
-      description: Server-Sent Events stream of price updates
+      description: Server-Sent Events stream of price updates, have a retry mechanism
+        in place for break
       produces:
       - text/event-stream
       responses:
@@ -212,7 +212,7 @@ paths:
           description: SSE stream
           schema:
             type: string
-      summary: Stream price updates
+      summary: Model Stream price updates
       tags:
       - prices
 swagger: "2.0"

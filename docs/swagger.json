@@ -1,7 +1,7 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "IFA LABS oracle engine api provides real time prices for assets through an aggregated moving window algorithm. Functionalities includes fetching price/stream and auditing fetched price.",
+        "description": "IFA LABS Oracle Engine API provides real-time, reliable asset prices using an aggregated moving window algorithm to ensure stability and reduce manipulation.",
         "title": "Oracle Engine API",
         "contact": {
             "name": "IfaLabs",
@@ -108,14 +108,14 @@
         },
         "/prices/stream": {
             "get": {
-                "description": "Server-Sent Events stream of price updates",
+                "description": "Server-Sent Events stream of price updates, have a retry mechanism in place for break",
                 "produces": [
                     "text/event-stream"
                 ],
                 "tags": [
                     "prices"
                 ],
-                "summary": "Stream price updates",
+                "summary": "Model Stream price updates",
                 "responses": {
                     "200": {
                         "description": "SSE stream",
