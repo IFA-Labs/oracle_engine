@@ -11,8 +11,8 @@ const docTemplate = `{
         "title": "{{.Title}}",
         "contact": {
             "name": "Grammyboy",
-            "url": "ifa-labs",
-            "email": "support@ifa-labs.com"
+            "url": "https://ifalabs.com",
+            "email": "ifalabstudio@gmail.com"
         },
         "license": {
             "name": "Apache 2.0",
@@ -332,11 +332,11 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "http://146.190.186.116:8000",
+	Host:             "146.190.186.116:8000",
 	BasePath:         "/api",
 	Schemes:          []string{},
 	Title:            "Oracle Engine API",
-	Description:      "API for accessing oracle price data and issuances also to audit prices",
+	Description:      "IFA LABS oracle engine api provides real time prices for assets through an aggregated moving window algorithm. Functionalities includes fetching price/stream and auditing fetched price.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

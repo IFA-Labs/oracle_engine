@@ -20,13 +20,13 @@ import (
 
 // @title Oracle Engine API
 // @version 1.0
-// @description API for accessing oracle price data and issuances also to audit prices
+// @description IFA LABS oracle engine api provides real time prices for assets through an aggregated moving window algorithm. Functionalities includes fetching price/stream and auditing fetched price.
 // @host localhost:8000
-// @host http://146.190.186.116:8000
+// @host 146.190.186.116:8000
 // @BasePath /api
 // @contact.name   Grammyboy
-// @contact.url    ifa-labs
-// @contact.email  support@ifa-labs.com
+// @contact.url     https://ifalabs.com
+// @contact.email  ifalabstudio@gmail.com
 
 // @license.name  Apache 2.0
 // @license.url   http://www.apache.org/licenses/LICENSE-2.0.html

@@ -108,13 +108,15 @@ definitions:
         description: Cant use in64 due to overflow
         type: number
     type: object
-host: http://146.190.186.116:8000
+host: 146.190.186.116:8000
 info:
   contact:
-    email: support@ifa-labs.com
+    email: ifalabstudio@gmail.com
     name: Grammyboy
-    url: ifa-labs
-  description: API for accessing oracle price data and issuances also to audit prices
+    url: https://ifalabs.com
+  description: IFA LABS oracle engine api provides real time prices for assets through
+    an aggregated moving window algorithm. Functionalities includes fetching price/stream
+    and auditing fetched price.
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
