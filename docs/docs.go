@@ -10,7 +10,7 @@ const docTemplate = `{
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
         "contact": {
-            "name": "Grammyboy",
+            "name": "IfaLabs",
             "url": "https://ifalabs.com",
             "email": "ifalabstudio@gmail.com"
         },

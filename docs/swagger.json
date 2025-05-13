@@ -4,7 +4,7 @@
         "description": "IFA LABS oracle engine api provides real time prices for assets through an aggregated moving window algorithm. Functionalities includes fetching price/stream and auditing fetched price.",
         "title": "Oracle Engine API",
         "contact": {
-            "name": "Grammyboy",
+            "name": "IfaLabs",
             "url": "https://ifalabs.com",
             "email": "ifalabstudio@gmail.com"
         },

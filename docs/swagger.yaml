@@ -112,7 +112,7 @@ host: 146.190.186.116:8000
 info:
   contact:
     email: ifalabstudio@gmail.com
-    name: Grammyboy
+    name: IfaLabs
     url: https://ifalabs.com
   description: IFA LABS oracle engine api provides real time prices for assets through
     an aggregated moving window algorithm. Functionalities includes fetching price/stream
