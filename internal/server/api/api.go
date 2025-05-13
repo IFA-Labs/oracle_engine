@@ -24,7 +24,7 @@ import (
 // @host localhost:8000
 // @host 146.190.186.116:8000
 // @BasePath /api
-// @contact.name   Grammyboy
+// @contact.name   IfaLabs
 // @contact.url     https://ifalabs.com
 // @contact.email  ifalabstudio@gmail.com
 
