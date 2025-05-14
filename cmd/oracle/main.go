@@ -8,6 +8,7 @@ import (
 	"oracle_engine/internal/database/timescale"
 	"oracle_engine/internal/datastream"
 	"oracle_engine/internal/datastream/monierate"
+	"oracle_engine/internal/datastream/pyth"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
 	"oracle_engine/internal/pricepool"
@@ -39,7 +40,7 @@ func main() {
 	ds := datastream.New(cfg, priceCh, db)
 
 	// Register feeds
-	// ds.RegisterFeed(pyth.New())
+	ds.RegisterFeed(pyth.New())
 	ds.RegisterFeed(monierate.New(cfg))
 
 	// Start Data Stream
