@@ -19,8 +19,8 @@ assets:
       - name: "coingecko"
         interval: 276
         assetID: "2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b"
-  - name: "NGN/USD"
-    internalAssetIdentity: "0xNGN"
+  - name: "CNGN/USD"
+    internalAssetIdentity: "0xCNGN"
     feeds:
       - name: "monierate"
         interval: 50
