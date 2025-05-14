@@ -98,7 +98,7 @@ func (ds *DataStream) runFeed(ctx context.Context, asset string, assetId string,
 			}
 
 			price.Asset = asset
-			if feed.Name() != "pyth" {
+			if feed.Name() != "monierate" {
 				continue
 			}
 			ds.out <- rawPrice

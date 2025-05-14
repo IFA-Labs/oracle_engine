@@ -147,14 +147,14 @@ func (r *Relayer) ConveyIssuanceToContract(ctx context.Context, issuance *models
 	}
 
 	// Prepare inputs
+	key := utils.HexToBytes32(issuance.Price.AssetID)
+
 	assetIndex := [][32]byte{}
-	var key [32]byte
-	copy(key[:], []byte(issuance.Price.AssetID))
 	assetIndex = append(assetIndex, key)
 
 	prices := []importVerifier.IIfaPriceFeedPriceFeed{
 		{
-			Price:          big.NewInt(int64(issuance.Price.Value)),
+			Price:          utils.Float64ToBigInt(issuance.Price.Value),
 			Decimal:        int8(issuance.Price.Expo),
 			LastUpdateTime: uint64(issuance.Price.Timestamp.Unix()),
 		},
