@@ -3,6 +3,7 @@ aggregator_nodes: 3
 consensus_threshold: 0.01
 aggr_dev_perc: 0.2
 SERVER_PORT: 8000
+RELAY_TIME_THRESHOLD: 10 # minutes
 assets:
   - name: "USDT/USD"
     internalAssetIdentity: "0xUSDT"

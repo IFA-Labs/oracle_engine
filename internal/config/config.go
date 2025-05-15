@@ -31,16 +31,17 @@ type AssetConfig struct {
 type ApiKey map[string]string
 
 type Config struct {
-	PricePoolTTL    int              `mapstructure:"price_pool_ttl"`
-	AggregatorNodes int              `mapstructure:"aggregator_nodes"`
-	ConsensusThresh float64          `mapstructure:"consensus_threshold"`
-	AggrDevPerc     float32          `mapstructure:"aggr_dev_perc"`
-	Assets          []AssetConfig    `mapstructure:"assets"`
-	ApiKeys         ApiKey           `mapstructure:"api_keys"`
-	Contracts       []ContractConfig `mapstructure:"contracts"`
-	PrivateKey      string           `mapstructure:"private_key"`
-	DB_URL          string           `mapstructure:"DB_URL"`
-	SERVER_PORT     string           `mapstructure:"server_port"`
+	PricePoolTTL         int              `mapstructure:"price_pool_ttl"`
+	RELAY_TIME_THRESHOLD int              `mapstructure:"RELAY_TIME_THRESHOLD"`
+	AggregatorNodes      int              `mapstructure:"aggregator_nodes"`
+	ConsensusThresh      float64          `mapstructure:"consensus_threshold"`
+	AggrDevPerc          float32          `mapstructure:"aggr_dev_perc"`
+	Assets               []AssetConfig    `mapstructure:"assets"`
+	ApiKeys              ApiKey           `mapstructure:"api_keys"`
+	Contracts            []ContractConfig `mapstructure:"contracts"`
+	PrivateKey           string           `mapstructure:"private_key"`
+	DB_URL               string           `mapstructure:"DB_URL"`
+	SERVER_PORT          string           `mapstructure:"server_port"`
 }
 
 func Load() *Config {

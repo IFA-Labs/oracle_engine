@@ -54,20 +54,19 @@ func CalculateWeightedAveragePrice(
 	state := models.Approved
 	if isDeviated {
 		// TODO: check other values before invalidating
-		// state = models.Denied
+		state = models.Denied
 	}
 
 	// Use diff of 5% only is approved
 	// also, allow if the last update timeout is more than 10s
 	lastUpdate := time.Since(currPrice.Timestamp)
-	if lastUpdate > 10*time.Second {
+	if lastUpdate > 30*time.Minute {
 		state = models.Approved
 	} else {
 		if weightedAvg-mean > 0.05*mean {
 			state = models.Approved
 		} else {
-			// TODO: check other values before invalidating
-			// state = models.Denied
+			state = models.Denied
 		}
 	}
 
