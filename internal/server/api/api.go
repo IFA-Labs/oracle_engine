@@ -12,6 +12,10 @@ import (
 
 	_ "oracle_engine/docs"
 
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -83,20 +87,77 @@ func (a *API) RegisterRoutes(router *gin.Engine) {
 // @Accept json
 // @Produce json
 // @Param asset query string false "Asset ID to get price for"
-// @Success 200 {object} map[string]float64
+// @Param changes query string false "Comma-separated list of price change periods (e.g. '7d,3d,24h'). Default is '7d'"
+// @Success 200 {object} map[string]models.UnifiedPrice
 // @Router /prices/last [get]
 func (a *API) handleLastPrice(c *gin.Context) {
 	asset := c.Query("asset")
+	changesParam := c.DefaultQuery("changes", "7d") // Default to 7d if not specified
+
+	// Parse change periods
+	changePeriods := strings.Split(changesParam, ",")
+	periodDurations := make(map[string]time.Duration)
+
+	for _, period := range changePeriods {
+		period = strings.TrimSpace(period)
+		if period == "" {
+			continue
+		}
+
+		// Parse period string (e.g. "7d", "24h")
+		var duration time.Duration
+
+		if strings.HasSuffix(period, "d") {
+			days, err := strconv.Atoi(strings.TrimSuffix(period, "d"))
+			if err != nil {
+				c.JSON(400, gin.H{"error": fmt.Sprintf("Invalid period format: %s", period)})
+				return
+			}
+			duration = time.Duration(days) * 24 * time.Hour
+		} else if strings.HasSuffix(period, "h") {
+			hours, err := strconv.Atoi(strings.TrimSuffix(period, "h"))
+			if err != nil {
+				c.JSON(400, gin.H{"error": fmt.Sprintf("Invalid period format: %s", period)})
+				return
+			}
+			duration = time.Duration(hours) * time.Hour
+		} else {
+			c.JSON(400, gin.H{"error": fmt.Sprintf("Unsupported period format: %s", period)})
+			return
+		}
+
+		periodDurations[period] = duration
+	}
+
 	if asset == "" {
 		// Return all assets' last prices
-		prices := make(map[string]float64)
+		prices := make(map[string]*models.UnifiedPrice)
 		for _, assetConfig := range a.cfg.Assets {
-			price, err := a.priceService.GetLastPrice(c.Request.Context(), utils.GenerateIDForAsset(assetConfig.InternalAssetIdentity))
+			assetID := utils.GenerateIDForAsset(assetConfig.InternalAssetIdentity)
+			price, err := a.priceService.GetLastPrice(c.Request.Context(), assetID)
 			if err != nil {
 				zap.L().Error("Failed to fetch last price", zap.String("asset", assetConfig.Name), zap.Error(err))
 				continue
 			}
-			prices[utils.GenerateIDForAsset(assetConfig.InternalAssetIdentity)] = price.Number()
+
+			// Calculate price changes for each period
+			price.PriceChanges = make([]models.PriceChange, 0, len(periodDurations))
+			for period, duration := range periodDurations {
+				historicalPrice, err := a.priceService.GetHistoricalPrice(c.Request.Context(), assetID, duration)
+				if err != nil {
+					zap.L().Error("Failed to fetch historical price",
+						zap.String("asset", assetConfig.Name),
+						zap.String("period", period),
+						zap.Error(err))
+					continue
+				}
+
+				if change := models.CalculatePriceChange(price, historicalPrice, period); change != nil {
+					price.PriceChanges = append(price.PriceChanges, *change)
+				}
+			}
+
+			prices[assetID] = price
 		}
 		c.JSON(200, prices)
 		return
@@ -108,7 +169,25 @@ func (a *API) handleLastPrice(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "Failed to fetch last price"})
 		return
 	}
-	c.JSON(200, map[string]float64{asset: price.Number()})
+
+	// Calculate price changes for each period
+	price.PriceChanges = make([]models.PriceChange, 0, len(periodDurations))
+	for period, duration := range periodDurations {
+		historicalPrice, err := a.priceService.GetHistoricalPrice(c.Request.Context(), asset, duration)
+		if err != nil {
+			zap.L().Error("Failed to fetch historical price",
+				zap.String("asset", asset),
+				zap.String("period", period),
+				zap.Error(err))
+			continue
+		}
+
+		if change := models.CalculatePriceChange(price, historicalPrice, period); change != nil {
+			price.PriceChanges = append(price.PriceChanges, *change)
+		}
+	}
+
+	c.JSON(200, price)
 }
 
 // @Summary Stream price updates

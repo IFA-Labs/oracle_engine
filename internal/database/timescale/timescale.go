@@ -305,3 +305,37 @@ func (t *TimescaleDB) AuditPrice(ctx context.Context, id string) (*models.PriceA
 
 	return &auditData, nil
 }
+
+func (t *TimescaleDB) GetHistoricalPrice(ctx context.Context, assetID string, lookback time.Duration) (*models.UnifiedPrice, error) {
+	query := `
+        SELECT value, expo, timestamp, source, req_hash
+        FROM prices
+        WHERE asset_id = $1
+        AND timestamp <= $2
+        ORDER BY timestamp DESC
+        LIMIT 1`
+
+	var value float64
+	var expo int8
+	var timestamp time.Time
+	var source, req_hash string
+
+	// Calculate the historical timestamp
+	historicalTime := time.Now().Add(-lookback)
+
+	err := t.db.QueryRowContext(ctx, query, assetID, historicalTime).Scan(&value, &expo, &timestamp, &source, &req_hash)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil // No historical price found
+		}
+		return nil, err
+	}
+
+	return &models.UnifiedPrice{
+		Value:     value,
+		Expo:      expo,
+		Timestamp: timestamp,
+		ReqHash:   req_hash,
+		Source:    source,
+	}, nil
+}
