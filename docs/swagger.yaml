@@ -1,28 +1,10 @@
 basePath: /api
 definitions:
-  config.AssetConfig:
+  models.AssetData:
     properties:
-      feeds:
-        description: List of feeds
-        items:
-          $ref: '#/definitions/config.FeedConfig'
-        type: array
-      internalAssetIdentity:
-        description: eg "0xUSDT"
+      asset:
         type: string
-      name:
-        description: e.g., "BTC/USD"
-        type: string
-    type: object
-  config.FeedConfig:
-    properties:
-      assetID:
-        type: string
-      interval:
-        description: Seconds (e.g., 5)
-        type: integer
-      name:
-        description: e.g., "binance"
+      asset_id:
         type: string
     type: object
   models.Issuance:
@@ -48,7 +30,7 @@ definitions:
         description: Normalized price value with 5 decimal places
         type: number
       round_id:
-        type: string
+        type: integer
       updated_at:
         type: string
     type: object
@@ -62,13 +44,61 @@ definitions:
     - Denied
     - Approved
     - Confirmed
+  models.Price:
+    properties:
+      asset:
+        type: string
+      expo:
+        type: integer
+      id:
+        type: string
+      internal_asset_identity:
+        type: string
+      req_url:
+        type: string
+      source:
+        type: string
+      timestamp:
+        type: string
+      value:
+        type: number
+    type: object
+  models.PriceAudit:
+    properties:
+      aggregated_price:
+        $ref: '#/definitions/models.UnifiedPrice'
+      asset_id:
+        type: string
+      created_at:
+        type: string
+      price_id:
+        type: string
+      raw_prices:
+        items:
+          $ref: '#/definitions/models.Price'
+        type: array
+      updated_at:
+        type: string
+    type: object
   models.UnifiedPrice:
     properties:
       assetID:
         type: string
+      connected_price_ids:
+        items:
+          type: string
+        type: array
       expo:
         type: integer
+      id:
+        type: string
+      is_aggr:
+        description: is aggregated
+        type: boolean
       req_hash:
+        type: string
+      req_url:
+        description: this is req url but not for aggr price
         type: string
       source:
         type: string
@@ -78,10 +108,17 @@ definitions:
         description: Cant use in64 due to overflow
         type: number
     type: object
-host: localhost:5001
+host: 146.190.186.116:8000
 info:
-  contact: {}
-  description: API for accessing oracle price data and issuances
+  contact:
+    email: ifalabstudio@gmail.com
+    name: IfaLabs
+    url: https://ifalabs.com
+  description: IFA LABS Oracle Engine API provides real-time, reliable asset prices
+    using an aggregated moving window algorithm to ensure stability and reduce manipulation.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
   title: Oracle Engine API
   version: "1.0"
 paths:
@@ -95,7 +132,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/config.AssetConfig'
+              $ref: '#/definitions/models.AssetData'
             type: array
       summary: Get available assets
       tags:
@@ -121,6 +158,27 @@ paths:
       summary: Get issuance details
       tags:
       - issuances
+  /prices/{id}/audit:
+    get:
+      consumes:
+      - application/json
+      description: Returns audit information for a specific price
+      parameters:
+      - description: Price ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.PriceAudit'
+      summary: Get price audit
+      tags:
+      - prices
   /prices/last:
     get:
       consumes:
@@ -145,7 +203,8 @@ paths:
       - prices
   /prices/stream:
     get:
-      description: Server-Sent Events stream of price updates
+      description: Server-Sent Events stream of price updates, have a retry mechanism
+        in place for break
       produces:
       - text/event-stream
       responses:
@@ -153,7 +212,7 @@ paths:
           description: SSE stream
           schema:
             type: string
-      summary: Stream price updates
+      summary: Model Stream price updates
       tags:
       - prices
 swagger: "2.0"

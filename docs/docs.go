@@ -9,7 +9,15 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "contact": {},
+        "contact": {
+            "name": "IfaLabs",
+            "url": "https://ifalabs.com",
+            "email": "ifalabstudio@gmail.com"
+        },
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+        },
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
@@ -31,7 +39,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/config.AssetConfig"
+                                "$ref": "#/definitions/models.AssetData"
                             }
                         }
                     }
@@ -106,14 +114,14 @@ const docTemplate = `{
         },
         "/prices/stream": {
             "get": {
-                "description": "Server-Sent Events stream of price updates",
+                "description": "Server-Sent Events stream of price updates, have a retry mechanism in place for break",
                 "produces": [
                     "text/event-stream"
                 ],
                 "tags": [
                     "prices"
                 ],
-                "summary": "Stream price updates",
+                "summary": "Model Stream price updates",
                 "responses": {
                     "200": {
                         "description": "SSE stream",
@@ -123,41 +131,48 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/prices/{id}/audit": {
+            "get": {
+                "description": "Returns audit information for a specific price",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "prices"
+                ],
+                "summary": "Get price audit",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Price ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.PriceAudit"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
-        "config.AssetConfig": {
+        "models.AssetData": {
             "type": "object",
             "properties": {
-                "feeds": {
-                    "description": "List of feeds",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/config.FeedConfig"
-                    }
-                },
-                "internalAssetIdentity": {
-                    "description": "eg \"0xUSDT\"",
+                "asset": {
                     "type": "string"
                 },
-                "name": {
-                    "description": "e.g., \"BTC/USD\"",
-                    "type": "string"
-                }
-            }
-        },
-        "config.FeedConfig": {
-            "type": "object",
-            "properties": {
-                "assetID": {
-                    "type": "string"
-                },
-                "interval": {
-                    "description": "Seconds (e.g., 5)",
-                    "type": "integer"
-                },
-                "name": {
-                    "description": "e.g., \"binance\"",
+                "asset_id": {
                     "type": "string"
                 }
             }
@@ -195,7 +210,7 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "round_id": {
-                    "type": "string"
+                    "type": "integer"
                 },
                 "updated_at": {
                     "type": "string"
@@ -215,16 +230,88 @@ const docTemplate = `{
                 "Confirmed"
             ]
         },
+        "models.Price": {
+            "type": "object",
+            "properties": {
+                "asset": {
+                    "type": "string"
+                },
+                "expo": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "internal_asset_identity": {
+                    "type": "string"
+                },
+                "req_url": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "number"
+                }
+            }
+        },
+        "models.PriceAudit": {
+            "type": "object",
+            "properties": {
+                "aggregated_price": {
+                    "$ref": "#/definitions/models.UnifiedPrice"
+                },
+                "asset_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "price_id": {
+                    "type": "string"
+                },
+                "raw_prices": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Price"
+                    }
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "models.UnifiedPrice": {
             "type": "object",
             "properties": {
                 "assetID": {
                     "type": "string"
                 },
+                "connected_price_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "expo": {
                     "type": "integer"
                 },
+                "id": {
+                    "type": "string"
+                },
+                "is_aggr": {
+                    "description": "is aggregated",
+                    "type": "boolean"
+                },
                 "req_hash": {
+                    "type": "string"
+                },
+                "req_url": {
+                    "description": "this is req url but not for aggr price",
                     "type": "string"
                 },
                 "source": {
@@ -245,11 +332,11 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "localhost:5001",
+	Host:             "146.190.186.116:8000",
 	BasePath:         "/api",
 	Schemes:          []string{},
 	Title:            "Oracle Engine API",
-	Description:      "API for accessing oracle price data and issuances",
+	Description:      "IFA LABS Oracle Engine API provides real-time, reliable asset prices using an aggregated moving window algorithm to ensure stability and reduce manipulation.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

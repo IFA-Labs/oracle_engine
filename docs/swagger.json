@@ -1,12 +1,20 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "API for accessing oracle price data and issuances",
+        "description": "IFA LABS Oracle Engine API provides real-time, reliable asset prices using an aggregated moving window algorithm to ensure stability and reduce manipulation.",
         "title": "Oracle Engine API",
-        "contact": {},
+        "contact": {
+            "name": "IfaLabs",
+            "url": "https://ifalabs.com",
+            "email": "ifalabstudio@gmail.com"
+        },
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+        },
         "version": "1.0"
     },
-    "host": "localhost:5001",
+    "host": "146.190.186.116:8000",
     "basePath": "/api",
     "paths": {
         "/assets": {
@@ -25,7 +33,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/config.AssetConfig"
+                                "$ref": "#/definitions/models.AssetData"
                             }
                         }
                     }
@@ -100,14 +108,14 @@
         },
         "/prices/stream": {
             "get": {
-                "description": "Server-Sent Events stream of price updates",
+                "description": "Server-Sent Events stream of price updates, have a retry mechanism in place for break",
                 "produces": [
                     "text/event-stream"
                 ],
                 "tags": [
                     "prices"
                 ],
-                "summary": "Stream price updates",
+                "summary": "Model Stream price updates",
                 "responses": {
                     "200": {
                         "description": "SSE stream",
@@ -117,41 +125,48 @@
                     }
                 }
             }
+        },
+        "/prices/{id}/audit": {
+            "get": {
+                "description": "Returns audit information for a specific price",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "prices"
+                ],
+                "summary": "Get price audit",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Price ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.PriceAudit"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
-        "config.AssetConfig": {
+        "models.AssetData": {
             "type": "object",
             "properties": {
-                "feeds": {
-                    "description": "List of feeds",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/config.FeedConfig"
-                    }
-                },
-                "internalAssetIdentity": {
-                    "description": "eg \"0xUSDT\"",
+                "asset": {
                     "type": "string"
                 },
-                "name": {
-                    "description": "e.g., \"BTC/USD\"",
-                    "type": "string"
-                }
-            }
-        },
-        "config.FeedConfig": {
-            "type": "object",
-            "properties": {
-                "assetID": {
-                    "type": "string"
-                },
-                "interval": {
-                    "description": "Seconds (e.g., 5)",
-                    "type": "integer"
-                },
-                "name": {
-                    "description": "e.g., \"binance\"",
+                "asset_id": {
                     "type": "string"
                 }
             }
@@ -189,7 +204,7 @@
                     "type": "number"
                 },
                 "round_id": {
-                    "type": "string"
+                    "type": "integer"
                 },
                 "updated_at": {
                     "type": "string"
@@ -209,16 +224,88 @@
                 "Confirmed"
             ]
         },
+        "models.Price": {
+            "type": "object",
+            "properties": {
+                "asset": {
+                    "type": "string"
+                },
+                "expo": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "internal_asset_identity": {
+                    "type": "string"
+                },
+                "req_url": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "number"
+                }
+            }
+        },
+        "models.PriceAudit": {
+            "type": "object",
+            "properties": {
+                "aggregated_price": {
+                    "$ref": "#/definitions/models.UnifiedPrice"
+                },
+                "asset_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "price_id": {
+                    "type": "string"
+                },
+                "raw_prices": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Price"
+                    }
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "models.UnifiedPrice": {
             "type": "object",
             "properties": {
                 "assetID": {
                     "type": "string"
                 },
+                "connected_price_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "expo": {
                     "type": "integer"
                 },
+                "id": {
+                    "type": "string"
+                },
+                "is_aggr": {
+                    "description": "is aggregated",
+                    "type": "boolean"
+                },
                 "req_hash": {
+                    "type": "string"
+                },
+                "req_url": {
+                    "description": "this is req url but not for aggr price",
                     "type": "string"
                 },
                 "source": {

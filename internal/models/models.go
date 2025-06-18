@@ -28,6 +28,16 @@ type AssetFeed struct {
 	asset string
 }
 
+type PriceChange struct {
+	Period    string    `json:"period"`     // e.g. "7d", "3d", "24h"
+	Change    float64   `json:"change"`     // Absolute change
+	ChangePct float64   `json:"change_pct"` // Percentage change
+	FromPrice float64   `json:"from_price"` // Starting price
+	ToPrice   float64   `json:"to_price"`   // Current price
+	FromTime  time.Time `json:"from_time"`  // Starting time
+	ToTime    time.Time `json:"to_time"`    // Current time
+}
+
 type UnifiedPrice struct {
 	ID      string `json:"id"`
 	AssetID string `json:"assetID"`
@@ -40,8 +50,9 @@ type UnifiedPrice struct {
 	// this is req url but not for aggr price
 	ReqURL string `json:"req_url"`
 	// is aggregated
-	IsAggr            bool     `json:"is_aggr"`
-	ConnectedPriceIDs []string `json:"connected_price_ids"`
+	IsAggr            bool          `json:"is_aggr"`
+	ConnectedPriceIDs []string      `json:"connected_price_ids"`
+	PriceChanges      []PriceChange `json:"price_changes,omitempty"` // Optional price changes
 }
 
 func (p Price) ToUnified() UnifiedPrice {
@@ -120,4 +131,32 @@ type PriceAudit struct {
 	RawPrices       []Price      `json:"raw_prices"`
 	CreatedAt       time.Time    `json:"created_at"`
 	UpdatedAt       time.Time    `json:"updated_at"`
+}
+
+type AssetData struct {
+	AssetID string `json:"asset_id"`
+	Asset   string `json:"asset"`
+}
+
+// CalculatePriceChange calculates the price change between two prices
+func CalculatePriceChange(current, historical *UnifiedPrice, period string) *PriceChange {
+	if historical == nil {
+		return nil
+	}
+
+	currentNum := current.Number()
+	historicalNum := historical.Number()
+
+	change := currentNum - historicalNum
+	changePct := (change / historicalNum) * 100
+
+	return &PriceChange{
+		Period:    period,
+		Change:    change,
+		ChangePct: changePct,
+		FromPrice: historicalNum,
+		ToPrice:   currentNum,
+		FromTime:  historical.Timestamp,
+		ToTime:    current.Timestamp,
+	}
 }

@@ -2,6 +2,8 @@ price_pool_ttl: 10
 aggregator_nodes: 3
 consensus_threshold: 0.01
 aggr_dev_perc: 0.2
+SERVER_PORT: 8000
+RELAY_TIME_THRESHOLD: 10 # minutes
 assets:
   - name: "USDT/USD"
     internalAssetIdentity: "0xUSDT"
@@ -21,8 +23,8 @@ assets:
       - name: "coingecko"
         interval: 276
         assetID: "2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b"
-  - name: "NGN/USD"
-    internalAssetIdentity: "0xNGN"
+  - name: "CNGN/USD"
+    internalAssetIdentity: "0xCNGN"
     feeds:
       - name: "monierate"
         interval: 50
@@ -55,5 +57,5 @@ contracts:
   - address: "0xC08CbF336cC0D7163Ef260bF69137c8cA7AF2F3a"
     abi: "0x"
     chainID: "84532"
-    chainName: "eth-mainnet"
-    rpc: "https://mainnet.infura.io/v3/"
+    chainName: "base-testnet"
+    rpc: ""

@@ -98,9 +98,7 @@ func (ds *DataStream) runFeed(ctx context.Context, asset string, assetId string,
 			}
 
 			price.Asset = asset
-			if feed.Name() != "pyth" {
-				continue
-			}
+
 			ds.out <- rawPrice
 			logging.Logger.Info("Price fetched",
 				zap.String("asset", rawPrice.Asset),

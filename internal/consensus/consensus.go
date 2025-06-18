@@ -44,6 +44,7 @@ func (c *Consensus) IssuanceChan() chan models.Issuance {
 
 func (c *Consensus) Ambassador(ctx context.Context, incomingCh aggregator.AggrUnitCh) {
 	tmpIssuanceCh := make(chan models.Issuance, 10)
+	go c.relayer.Start(ctx)
 
 	for {
 		select {
@@ -69,6 +70,11 @@ func (c *Consensus) Ambassador(ctx context.Context, incomingCh aggregator.AggrUn
 func (c *Consensus) handleIssuance(ctx context.Context, issuance models.Issuance) {
 	logging.Logger.Info("Issuance", zap.Int("num", int(issuance.Price.Number())))
 	c.issuanceCh <- issuance
+	// Pass to relayer
+	if err := c.relayer.AcceptIssuance(&issuance); err != nil {
+		logging.Logger.Panic("Error relaying issuance", zap.Any("err", err))
+		return
+	}
 }
 
 func (c *Consensus) processAggrPrice(
@@ -89,13 +95,16 @@ func (c *Consensus) processAggrPrice(
 	logging.Logger.Info("Isk", zap.Any("iss", price))
 
 	// Save the aggregated price in price and link
-	c.db.SaveIssuance(ctx, issuance)
+	if err := c.db.SaveIssuance(ctx, issuance); err != nil {
+		logging.Logger.Error("Error saving issuance", zap.Any("err", err))
+		return issuance
+	}
 
 	// the batch through ids
 	c.db.LinkRawPricesToAggregatedPrice(
 		ctx,
 		issuance.Price.ID,
-		price.Timestamp,
+		issuance.Price.Timestamp,
 		price.ConnectedPriceIDs,
 	)
 

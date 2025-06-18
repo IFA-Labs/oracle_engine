@@ -128,6 +128,7 @@ func (t *TimescaleDB) GetLastPrice(ctx context.Context, assetID string) (*models
 func (t *TimescaleDB) SaveIssuance(ctx context.Context, issuance models.Issuance) error {
 	if issuance.State == models.Approved {
 		if err := t.SavePrice(ctx, issuance.Price); err != nil {
+			logging.Logger.Info("Error saving price", zap.Any("err", err), zap.Any("price", issuance.Price.ID))
 			return err
 		}
 	}
@@ -233,7 +234,12 @@ func (t *TimescaleDB) LinkRawPricesToAggregatedPrice(ctx context.Context, aggreg
 	for _, rawID := range filtered {
 		_, err := t.db.ExecContext(ctx, query, aggregatedPriceID, timestamp, rawID)
 		if err != nil {
-			logging.Logger.Info("Killllllll", zap.Any("errrrr", err), zap.Any("str", rawID))
+			logging.Logger.Info(
+				"Killllllll",
+				zap.Any("errrrr", err), zap.Any("str", rawID),
+				zap.String("agg", aggregatedPriceID),
+				zap.Time("time", timestamp),
+			)
 			return err
 		}
 	}
@@ -298,4 +304,38 @@ func (t *TimescaleDB) AuditPrice(ctx context.Context, id string) (*models.PriceA
 	}
 
 	return &auditData, nil
+}
+
+func (t *TimescaleDB) GetHistoricalPrice(ctx context.Context, assetID string, lookback time.Duration) (*models.UnifiedPrice, error) {
+	query := `
+        SELECT value, expo, timestamp, source, req_hash
+        FROM prices
+        WHERE asset_id = $1
+        AND timestamp <= $2
+        ORDER BY timestamp DESC
+        LIMIT 1`
+
+	var value float64
+	var expo int8
+	var timestamp time.Time
+	var source, req_hash string
+
+	// Calculate the historical timestamp
+	historicalTime := time.Now().Add(-lookback)
+
+	err := t.db.QueryRowContext(ctx, query, assetID, historicalTime).Scan(&value, &expo, &timestamp, &source, &req_hash)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil // No historical price found
+		}
+		return nil, err
+	}
+
+	return &models.UnifiedPrice{
+		Value:     value,
+		Expo:      expo,
+		Timestamp: timestamp,
+		ReqHash:   req_hash,
+		Source:    source,
+	}, nil
 }
