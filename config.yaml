@@ -9,6 +9,9 @@ assets:
       - name: "pyth"
         interval: 10
         assetID: "2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b"
+      - name: "moralis"
+        interval: 30
+        assetID: "0xdAC17F958D2ee523a2206206994597C13D831ec7"
   - name: "ETH/USD"
     internalAssetIdentity: "0xETH"
     feeds:
@@ -24,6 +27,30 @@ assets:
       - name: "monierate"
         interval: 50
         assetID: "NGN"
+      - name: "exchangerate"
+        interval: 62
+        assetID: "NGN"
+      - name: "twelvedata"
+        interval: 64
+        assetID: "NGN"
+      - name: "currencylayer"
+        interval: 66
+        assetID: "NGN"
+  - name: "BRL/USD"
+    internalAssetIdentity: "0xBRL"
+    feeds:
+      - name: "exchangerate"
+        interval: 60
+        assetID: "BRL"
+      - name: "twelvedata"
+        interval: 60
+        assetID: "BRL"
+      - name: "fixer"
+        interval: 60
+        assetID: "BRL"
+      - name: "currencylayer"
+        interval: 60
+        assetID: "BRL"
 contracts:
   - address: "0xC08CbF336cC0D7163Ef260bF69137c8cA7AF2F3a"
     abi: "0x"

@@ -51,6 +51,11 @@ func Load() *Config {
 	viper.SetDefault("consensus_threshold", 0.01)
 	viper.SetDefault("api_keys", map[string]string{
 		"monierate": os.Getenv("MONIERATE_API_KEY"),
+		"exchangerate": os.Getenv("EXCHANGERATE_API_KEY"),
+		"twelvedata": os.Getenv("TWELVEDATA_API_KEY"),
+		"fixer": os.Getenv("FIXER_API_KEY"),
+		"currencylayer": os.Getenv("CURRENCYLAYER_API_KEY"),
+		"moralis": os.Getenv("MORALIS_API_KEY"),
 	})
 
 	_ = godotenv.Load()
