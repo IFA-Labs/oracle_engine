@@ -38,8 +38,8 @@ assets:
       - name: "currencylayer"
         interval: 66
         assetID: "NGN"
-  - name: "BRL/USD"
-    internalAssetIdentity: "0xBRL"
+  - name: "BRZ/USD"
+    internalAssetIdentity: "0xBRZ"
     feeds:
       - name: "exchangerate"
         interval: 60

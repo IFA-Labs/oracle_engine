@@ -49,7 +49,8 @@ func (p *MonierateFeed) FetchPrice(ctx context.Context, assetID string, internal
 	payload := strings.NewReader(fmt.Sprintf(`{
     "from": "USD",
     "to": "%s",
-    "amount": 1
+    "amount": 1,
+	"market": "parallel"
 	}`, assetID))
 	logging.Logger.Info("Monierate payload", zap.String("payload", assetID))
 
