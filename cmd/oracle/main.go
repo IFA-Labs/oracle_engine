@@ -7,7 +7,6 @@ import (
 	"oracle_engine/internal/consensus"
 	"oracle_engine/internal/database/timescale"
 	"oracle_engine/internal/datastream"
-	"oracle_engine/internal/datastream/binance"
 	"oracle_engine/internal/datastream/currencylayer"
 	"oracle_engine/internal/datastream/exchangerate"
 	"oracle_engine/internal/datastream/fixer"
