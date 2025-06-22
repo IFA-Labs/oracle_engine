@@ -31,10 +31,7 @@ require (
 	github.com/consensys/gnark-crypto v0.17.0 // indirect
 	github.com/crate-crypto/go-eth-kzg v1.3.0 // indirect
 	github.com/crate-crypto/go-ipa v0.0.0-20240724233137-53bbb0ceb27a // indirect
-<<<<<<< HEAD
-=======
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
->>>>>>> cab8101cde6a23b0837d8db67ca8e2f2132272b6
 	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
