@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 WORKDIR /app
 
 # Install swag and other dependencies
@@ -28,8 +28,8 @@ RUN ls -la docs/
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o oracle-backend cmd/oracle/main.go
 
-# Debug: Check if binary was created
-RUN ls -la oracle-backend
+# Debug: Check if binary was created and show its details
+RUN ls -la oracle-backend && file oracle-backend
 
 # Run stage
 FROM alpine:latest
@@ -49,7 +49,7 @@ COPY web/ ./web/
 RUN chmod +x oracle-backend
 
 # Debug: Check if binary exists and is executable
-RUN ls -la oracle-backend
+RUN ls -la oracle-backend && file oracle-backend
 
 EXPOSE 5001
 EXPOSE 8000
