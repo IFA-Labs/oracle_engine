@@ -4,7 +4,6 @@ run:
 	docker compose up
 
 dev:
-	make swag
 	docker compose -f docker-compose.dev.yml up --build
 
 build:
