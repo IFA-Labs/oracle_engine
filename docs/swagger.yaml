@@ -80,6 +80,30 @@ definitions:
       updated_at:
         type: string
     type: object
+  models.PriceChange:
+    properties:
+      change:
+        description: Absolute change
+        type: number
+      change_pct:
+        description: Percentage change
+        type: number
+      from_price:
+        description: Starting price
+        type: number
+      from_time:
+        description: Starting time
+        type: string
+      period:
+        description: e.g. "7d", "3d", "24h"
+        type: string
+      to_price:
+        description: Current price
+        type: number
+      to_time:
+        description: Current time
+        type: string
+    type: object
   models.UnifiedPrice:
     properties:
       assetID:
@@ -95,6 +119,11 @@ definitions:
       is_aggr:
         description: is aggregated
         type: boolean
+      price_changes:
+        description: Optional price changes
+        items:
+          $ref: '#/definitions/models.PriceChange'
+        type: array
       req_hash:
         type: string
       req_url:
@@ -189,6 +218,11 @@ paths:
         in: query
         name: asset
         type: string
+      - description: Comma-separated list of price change periods (e.g. '7d,3d,24h').
+          Default is '7d'
+        in: query
+        name: changes
+        type: string
       produces:
       - application/json
       responses:
@@ -196,7 +230,7 @@ paths:
           description: OK
           schema:
             additionalProperties:
-              type: number
+              $ref: '#/definitions/models.UnifiedPrice'
             type: object
       summary: Get last price for an asset
       tags:

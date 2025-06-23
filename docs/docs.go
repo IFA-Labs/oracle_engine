@@ -97,6 +97,12 @@ const docTemplate = `{
                         "description": "Asset ID to get price for",
                         "name": "asset",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of price change periods (e.g. '7d,3d,24h'). Default is '7d'",
+                        "name": "changes",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -105,7 +111,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
-                                "type": "number"
+                                "$ref": "#/definitions/models.UnifiedPrice"
                             }
                         }
                     }
@@ -285,6 +291,39 @@ const docTemplate = `{
                 }
             }
         },
+        "models.PriceChange": {
+            "type": "object",
+            "properties": {
+                "change": {
+                    "description": "Absolute change",
+                    "type": "number"
+                },
+                "change_pct": {
+                    "description": "Percentage change",
+                    "type": "number"
+                },
+                "from_price": {
+                    "description": "Starting price",
+                    "type": "number"
+                },
+                "from_time": {
+                    "description": "Starting time",
+                    "type": "string"
+                },
+                "period": {
+                    "description": "e.g. \"7d\", \"3d\", \"24h\"",
+                    "type": "string"
+                },
+                "to_price": {
+                    "description": "Current price",
+                    "type": "number"
+                },
+                "to_time": {
+                    "description": "Current time",
+                    "type": "string"
+                }
+            }
+        },
         "models.UnifiedPrice": {
             "type": "object",
             "properties": {
@@ -306,6 +345,13 @@ const docTemplate = `{
                 "is_aggr": {
                     "description": "is aggregated",
                     "type": "boolean"
+                },
+                "price_changes": {
+                    "description": "Optional price changes",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PriceChange"
+                    }
                 },
                 "req_hash": {
                     "type": "string"
