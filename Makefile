@@ -1,7 +1,7 @@
 .PHONY: run dev build clean up down swag
 
 run:
-	docker compose -f docker-compose.dev.yml up --build
+	docker compose -f docker-compose.dev.yml up --build -d
 
 dev:
 	docker compose -f docker-compose.dev.yml up --build
