@@ -143,7 +143,7 @@ The application uses a `config.yaml` file for configuration. Key settings includ
 
 **Always run `make swag` locally before pushing to staging!** This ensures that:
 - Swagger documentation is up-to-date with your API changes
-- The staging environment can run `make dev` without needing to regenerate docs
+- The staging environment can run `make run` without needing to regenerate docs
 - API documentation remains consistent across environments
 
 ### Available Make Commands
