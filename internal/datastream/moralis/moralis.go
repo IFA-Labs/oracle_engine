@@ -27,14 +27,14 @@ func New(cfg *config.Config) *MoralisFeed {
 }
 
 type MoralisResponse struct {
-	UsdPrice     float64 `json:"usdPrice"`
-	ExchangeName string  `json:"exchangeName"`
-	ExchangeAddress string `json:"exchangeAddress"`
-	NativePrice  struct {
-		Value string `json:"value"`
-		Decimals int `json:"decimals"`
-		Name string `json:"name"`
-		Symbol string `json:"symbol"`
+	UsdPrice        float64 `json:"usdPrice"`
+	ExchangeName    string  `json:"exchangeName"`
+	ExchangeAddress string  `json:"exchangeAddress"`
+	NativePrice     struct {
+		Value    string `json:"value"`
+		Decimals int    `json:"decimals"`
+		Name     string `json:"name"`
+		Symbol   string `json:"symbol"`
 	} `json:"nativePrice"`
 	TokenAddress string `json:"tokenAddress"`
 }
@@ -43,7 +43,7 @@ func (m *MoralisFeed) FetchPrice(ctx context.Context, assetID string, internalAs
 	// For ERC20 tokens, we need to get the USD price
 	// The assetID should be the token contract address
 	url := fmt.Sprintf("https://deep-index.moralis.io/api/v2.2/erc20/%s/price", assetID)
-	
+
 	logging.Logger.Info("Fetching Moralis", zap.String("url", url))
 
 	client := &http.Client{}
@@ -83,7 +83,7 @@ func (m *MoralisFeed) FetchPrice(ctx context.Context, assetID string, internalAs
 	// This is exactly what we want to store - the price of the token in USD
 	tokenPrice := moralisResponse.UsdPrice
 
-	logging.Logger.Info("Moralis conversion", 
+	logging.Logger.Info("Moralis conversion",
 		zap.Float64("tokenPrice", tokenPrice),
 		zap.String("exchangeName", moralisResponse.ExchangeName),
 		zap.String("tokenAddress", moralisResponse.TokenAddress),
@@ -95,6 +95,7 @@ func (m *MoralisFeed) FetchPrice(ctx context.Context, assetID string, internalAs
 		Timestamp:             time.Now(),
 		Source:                m.Name(),
 		InternalAssetIdentity: internalAssetId,
+		Asset:                 assetID,
 	}, nil
 }
 
@@ -108,4 +109,4 @@ func (m *MoralisFeed) Interval() time.Duration {
 
 func (m *MoralisFeed) AssetID() string {
 	return m.assetID
-} 
+}

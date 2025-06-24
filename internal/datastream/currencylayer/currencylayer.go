@@ -28,7 +28,7 @@ func New(cfg *config.Config) *CurrencyLayerFeed {
 }
 
 type CurrencyLayerResponse struct {
-	Success bool   `json:"success"`
+	Success bool `json:"success"`
 	Query   struct {
 		From   string  `json:"from"`
 		To     string  `json:"to"`
@@ -44,17 +44,17 @@ type CurrencyLayerResponse struct {
 }
 
 func (c *CurrencyLayerFeed) FetchPrice(ctx context.Context, assetID string, internalAssetId string) (*models.Price, error) {
-	// For BRL/USD, we need to get BRL/USD rate
-	// Since CurrencyLayer API uses from/to format, we'll convert 1 BRL to USD
+	// For asset/USD, we need to get asset/USD rate
+	// Since CurrencyLayer API uses from/to format, we'll convert 1 asset to USD
 	baseURL := "https://api.currencylayer.com/convert"
 	params := url.Values{}
 	params.Add("access_key", c.apiKey)
-	params.Add("from", "BRL")
+	params.Add("from", assetID)
 	params.Add("to", "USD")
 	params.Add("amount", "1")
 
 	fullURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())
-	
+
 	logging.Logger.Info("Fetching CurrencyLayer", zap.String("url", fullURL))
 
 	client := &http.Client{}
@@ -92,16 +92,16 @@ func (c *CurrencyLayerFeed) FetchPrice(ctx context.Context, assetID string, inte
 		return nil, errMsg
 	}
 
-	// The result gives us how many USD we get for 1 BRL
-	// This is exactly what we want to store - the price of BRL in USD
-	brlToUsd := currencyLayerResponse.Result
+	// The result gives us how many USD we get for 1 asset
+	// This is exactly what we want to store - the price of asset in USD
+	assetToUsd := currencyLayerResponse.Result
 
-	logging.Logger.Info("CurrencyLayer conversion", 
-		zap.Float64("brlToUsd", brlToUsd),
+	logging.Logger.Info("CurrencyLayer conversion",
+		zap.Float64("brlToUsd", assetToUsd),
 		zap.Float64("rate", currencyLayerResponse.Info.Rate),
 		zap.String("from", currencyLayerResponse.Query.From),
 		zap.String("to", currencyLayerResponse.Query.To),
-		zap.String("description", "USD per 1 BRL"))
+		zap.String("description", "USD per 1 asset"))
 
 	// Convert timestamp from Unix to time.Time if available
 	var timestamp time.Time
@@ -112,11 +112,12 @@ func (c *CurrencyLayerFeed) FetchPrice(ctx context.Context, assetID string, inte
 	}
 
 	return &models.Price{
-		Value:                 brlToUsd,
+		Value:                 assetToUsd,
 		Expo:                  int8(0),
 		Timestamp:             timestamp,
 		Source:                c.Name(),
 		InternalAssetIdentity: internalAssetId,
+		Asset:                 assetID,
 	}, nil
 }
 
@@ -130,4 +131,4 @@ func (c *CurrencyLayerFeed) Interval() time.Duration {
 
 func (c *CurrencyLayerFeed) AssetID() string {
 	return c.assetID
-} 
+}

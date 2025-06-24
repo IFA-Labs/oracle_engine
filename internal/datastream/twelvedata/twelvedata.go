@@ -34,14 +34,14 @@ type TwelveDataResponse struct {
 }
 
 func (t *TwelveDataFeed) FetchPrice(ctx context.Context, assetID string, internalAssetId string) (*models.Price, error) {
-	// For BRL/USD, we need to get BRL/USD rate
+	// Use the provided assetID directly for the API call
 	baseURL := "https://api.twelvedata.com/exchange_rate"
 	params := url.Values{}
-	params.Add("symbol", "BRL/USD")
+	params.Add("symbol", assetID)
 	params.Add("apikey", t.apiKey)
 
 	fullURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())
-	
+
 	logging.Logger.Info("Fetching TwelveData", zap.String("url", fullURL))
 
 	client := &http.Client{}
@@ -73,20 +73,21 @@ func (t *TwelveDataFeed) FetchPrice(ctx context.Context, assetID string, interna
 		return nil, err
 	}
 
-	// The rate gives us BRL/USD rate (how many USD for 1 BRL)
-	// This is exactly what we want to store - the price of BRL in USD
-	brlToUsd := twelveDataResponse.Rate
+	// The rate gives us the exchange rate for the specified asset pair
+	// This is exactly what we want to store - the price of base currency in quote currency
+	rate := twelveDataResponse.Rate
 
-	logging.Logger.Info("TwelveData conversion", 
-		zap.Float64("brlToUsd", brlToUsd),
+	logging.Logger.Info("TwelveData conversion",
+		zap.Float64("rate", rate),
 		zap.String("symbol", twelveDataResponse.Symbol),
-		zap.String("description", "USD per 1 BRL"))
+		zap.String("description", fmt.Sprintf("Rate for %s", twelveDataResponse.Symbol)))
 
 	// Convert timestamp from Unix to time.Time
 	timestamp := time.Unix(twelveDataResponse.Timestamp, 0)
 
 	return &models.Price{
-		Value:                 brlToUsd,
+		Asset:                 assetID,
+		Value:                 rate,
 		Expo:                  int8(0),
 		Timestamp:             timestamp,
 		Source:                t.Name(),
@@ -104,4 +105,4 @@ func (t *TwelveDataFeed) Interval() time.Duration {
 
 func (t *TwelveDataFeed) AssetID() string {
 	return t.assetID
-} 
+}

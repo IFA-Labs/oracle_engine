@@ -42,8 +42,8 @@ type ExchangeRateResponse struct {
 func (e *ExchangeRateFeed) FetchPrice(ctx context.Context, assetID string, internalAssetId string) (*models.Price, error) {
 	// For BRL/USD, we need to get BRL/USD rate
 	// Since the API format is base/target, we'll use BRL as base and USD as target
-	url := fmt.Sprintf("https://v6.exchangerate-api.com/v6/%s/pair/BRL/USD", e.apiKey)
-	
+	url := fmt.Sprintf("https://v6.exchangerate-api.com/v6/%s/pair/%s/USD", e.apiKey, assetID)
+
 	logging.Logger.Info("Fetching ExchangeRate", zap.String("url", url))
 
 	client := &http.Client{}
@@ -81,16 +81,17 @@ func (e *ExchangeRateFeed) FetchPrice(ctx context.Context, assetID string, inter
 		return nil, errMsg
 	}
 
-	// The conversion_rate gives us BRL/USD rate (how many USD for 1 BRL)
-	// This is exactly what we want to store - the price of BRL in USD
-	brlToUsd := exchangeRateResponse.ConversionRate
+	// The conversion_rate gives us <asset>/USD rate (how many USD for 1 Asset)
+	// This is exactly what we want to store - the price of asset in USD
+	assetToUsd := exchangeRateResponse.ConversionRate
 
-	logging.Logger.Info("ExchangeRate conversion", 
-		zap.Float64("brlToUsd", brlToUsd),
+	logging.Logger.Info("ExchangeRate conversion",
+		zap.Float64("brlToUsd", assetToUsd),
 		zap.String("description", "USD per 1 BRL"))
 
 	return &models.Price{
-		Value:                 brlToUsd,
+		Value:                 assetToUsd,
+		Asset:                 assetID,
 		Expo:                  int8(0),
 		Timestamp:             time.Now(),
 		Source:                e.Name(),
@@ -108,4 +109,4 @@ func (e *ExchangeRateFeed) Interval() time.Duration {
 
 func (e *ExchangeRateFeed) AssetID() string {
 	return e.assetID
-} 
+}

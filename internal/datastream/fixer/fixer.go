@@ -28,7 +28,7 @@ func New(cfg *config.Config) *FixerFeed {
 }
 
 type FixerResponse struct {
-	Success bool   `json:"success"`
+	Success bool `json:"success"`
 	Query   struct {
 		From   string  `json:"from"`
 		To     string  `json:"to"`
@@ -43,16 +43,17 @@ type FixerResponse struct {
 }
 
 func (f *FixerFeed) FetchPrice(ctx context.Context, assetID string, internalAssetId string) (*models.Price, error) {
-	// For BRL/USD, we need to get BRL/USD rate
+	// Parse assetID to get base and quote currencies
+	// Expected format: "BASE/QUOTE" (e.g., "BRL/USD")
 	baseURL := "https://data.fixer.io/api/convert"
 	params := url.Values{}
 	params.Add("access_key", f.apiKey)
-	params.Add("from", "BRL")
+	params.Add("from", assetID)
 	params.Add("to", "USD")
 	params.Add("amount", "1")
 
 	fullURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())
-	
+
 	logging.Logger.Info("Fetching Fixer", zap.String("url", fullURL))
 
 	client := &http.Client{}
@@ -90,19 +91,20 @@ func (f *FixerFeed) FetchPrice(ctx context.Context, assetID string, internalAsse
 		return nil, errMsg
 	}
 
-	// The result gives us how many USD we get for 1 BRL
-	// This is exactly what we want to store - the price of BRL in USD
-	brlToUsd := fixerResponse.Result
+	// The result gives us how many quote currency we get for 1 base currency
+	// This is exactly what we want to store - the price of base currency in quote currency
+	rate := fixerResponse.Result
 
-	logging.Logger.Info("Fixer conversion", 
-		zap.Float64("brlToUsd", brlToUsd),
-		zap.Float64("rate", fixerResponse.Info.Rate),
+	logging.Logger.Info("Fixer conversion",
+		zap.Float64("rate", rate),
+		zap.Float64("apiRate", fixerResponse.Info.Rate),
 		zap.String("from", fixerResponse.Query.From),
 		zap.String("to", fixerResponse.Query.To),
-		zap.String("description", "USD per 1 BRL"))
+		zap.String("description", fmt.Sprintf("%s per 1 %s", fixerResponse.Query.To, fixerResponse.Query.From)))
 
 	return &models.Price{
-		Value:                 brlToUsd,
+		Asset:                 assetID,
+		Value:                 rate,
 		Expo:                  int8(0),
 		Timestamp:             time.Now(),
 		Source:                f.Name(),
@@ -120,4 +122,4 @@ func (f *FixerFeed) Interval() time.Duration {
 
 func (f *FixerFeed) AssetID() string {
 	return f.assetID
-} 
+}
