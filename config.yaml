@@ -7,6 +7,9 @@ RELAY_TIME_THRESHOLD: 10 # minutes
 assets:
   - name: "USDT/USD"
     internalAssetIdentity: "0xUSDT"
+    settings:
+      TTL: 4 * 3600 # 4 hours
+      devPerc: 0.05
     feeds:
       - name: "pyth"
         interval: 10

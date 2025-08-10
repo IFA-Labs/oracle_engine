@@ -8,6 +8,7 @@ import (
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
 	"oracle_engine/internal/relayer"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -84,13 +85,28 @@ func (c *Consensus) processAggrPrice(
 	id := uuid.NewString()
 	// TODO: fetch more prices from db (last n prices)
 	lastPrice, err := c.db.GetLastPrice(ctx, price.AssetID)
+	// todo: get last issuance for asset instead
 	if err != nil {
 		// handle error
 		logging.Logger.Error("Couldn't fetch last price for consensus", zap.Any("id", price.AssetID))
 		lastPrice = &price
 	}
 	lastPrices := []models.UnifiedPrice{*lastPrice}
-	issuance := weighted.CalculateWeightedAveragePrice(id, price, lastPrices)
+	// fetch last issuance
+	lastIssuance, err := c.db.GetLastIssuance(ctx, price.AssetID)
+	if err != nil {
+		logging.Logger.Error("Couldn't fetch last issuance for consensus", zap.Any("id", price.AssetID))
+		lastIssuance = &models.Issuance{
+			Price:         *lastPrice,
+			ID:            uuid.NewString(),
+			State:         models.Approved,
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+			IssuerAddress: "",
+			RoundID:       0,
+		}
+	}
+	issuance := weighted.CalculateWeightedAveragePrice(id, price, lastPrices, *lastIssuance)
 
 	logging.Logger.Info("Isk", zap.Any("iss", price))
 

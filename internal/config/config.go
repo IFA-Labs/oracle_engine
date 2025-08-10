@@ -22,10 +22,24 @@ type ContractConfig struct {
 	ChainName string `mapstructure:"chainName"`
 }
 
+type AssetSetting struct {
+	// ttl in seconds
+	TTL int `mapstructure:"ttl"` // Time to live for price pool
+	// percentage deviation for consensus in perc eg 0.01
+	DevPerc float32 `mapstructure:"dev_perc"` // Deviation percentage for consensus
+}
+
 type AssetConfig struct {
 	Name                  string       `mapstructure:"name"`                  // e.g., "BTC/USD"
 	InternalAssetIdentity string       `mapstructure:"internalAssetIdentity"` // eg "0xUSDT"
 	Feeds                 []FeedConfig `mapstructure:"feeds"`                 // List of feeds
+	// Settings
+	Settings AssetSetting `mapstructure:"settings"` // Settings for the asset
+}
+
+var DefaultAssetSetting = AssetSetting{
+	TTL:     10,   // Default TTL in seconds
+	DevPerc: 0.01, // Default deviation percentage for consensus
 }
 
 type ApiKey map[string]string
@@ -53,12 +67,12 @@ func Load() *Config {
 	viper.SetDefault("aggregator_nodes", 3)
 	viper.SetDefault("consensus_threshold", 0.01)
 	viper.SetDefault("api_keys", map[string]string{
-		"monierate": os.Getenv("MONIERATE_API_KEY"),
-		"exchangerate": os.Getenv("EXCHANGERATE_API_KEY"),
-		"twelvedata": os.Getenv("TWELVEDATA_API_KEY"),
-		"fixer": os.Getenv("FIXER_API_KEY"),
+		"monierate":     os.Getenv("MONIERATE_API_KEY"),
+		"exchangerate":  os.Getenv("EXCHANGERATE_API_KEY"),
+		"twelvedata":    os.Getenv("TWELVEDATA_API_KEY"),
+		"fixer":         os.Getenv("FIXER_API_KEY"),
 		"currencylayer": os.Getenv("CURRENCYLAYER_API_KEY"),
-		"moralis": os.Getenv("MORALIS_API_KEY"),
+		"moralis":       os.Getenv("MORALIS_API_KEY"),
 	})
 
 	_ = godotenv.Load()

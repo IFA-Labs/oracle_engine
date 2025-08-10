@@ -160,6 +160,36 @@ func (t *TimescaleDB) SaveIssuance(ctx context.Context, issuance models.Issuance
 	return err
 }
 
+func (t *TimescaleDB) GetLastIssuance(ctx context.Context, assetID string) (*models.Issuance, error) {
+	query := `
+		SELECT id, state, issuer_address, round_id, created_at, updated_at,
+		price_value, price_asset_id, price_source, price_timestamp,
+		metadata
+		FROM issuances
+		WHERE price_asset_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+	var issuance models.Issuance
+	err := t.db.QueryRowContext(ctx, query, assetID).Scan(
+		&issuance.ID,
+		&issuance.State,
+		&issuance.IssuerAddress,
+		&issuance.RoundID,
+		&issuance.CreatedAt,
+		&issuance.UpdatedAt,
+		&issuance.PriceValue,
+		&issuance.PriceAssetID,
+		&issuance.PriceSource,
+		&issuance.PriceTimestamp,
+		&issuance.Metadata,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &issuance, nil
+}
+
 func (t *TimescaleDB) GetIssuance(ctx context.Context, id string) (*models.Issuance, error) {
 	query := `
         SELECT 

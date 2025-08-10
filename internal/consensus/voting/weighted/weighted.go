@@ -2,6 +2,7 @@ package weighted
 
 import (
 	"math"
+	"oracle_engine/internal/config"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
 	"sort"
@@ -14,7 +15,28 @@ func CalculateWeightedAveragePrice(
 	id string,
 	currPrice models.UnifiedPrice,
 	pastXPrices []models.UnifiedPrice,
+	lastIssuance models.Issuance,
 ) models.Issuance {
+	cfg := config.Load()
+	// fetch settings from config for asset
+	assetsSettings := cfg.Assets
+	// this asset id
+	assetId := currPrice.AssetID
+	var assetSetting *config.AssetSetting
+	for _, asset := range assetsSettings {
+		if asset.InternalAssetIdentity == assetId {
+			assetSetting = &asset.Settings
+			logging.Logger.Info("Found asset setting",
+				zap.Any("asset", asset.Name),
+				zap.Any("setting", assetSetting),
+			)
+			break
+		}
+	}
+	// If no asset setting found, use default
+	if assetSetting == nil {
+		assetSetting = &config.DefaultAssetSetting
+	}
 
 	// Sort past prices by Timestamp descending (latest first)
 	sort.Slice(pastXPrices, func(i, j int) bool {
@@ -49,24 +71,25 @@ func CalculateWeightedAveragePrice(
 	}
 	mean /= float64(len(prices))
 
-	deviationThreshold := 0.4 * mean
-	isDeviated = math.Abs(weightedAvg-mean) > deviationThreshold
+	// deviationThreshold := 0.4 * mean
+	deviationThreshold := float64(assetSetting.DevPerc) * mean
 	state := models.Approved
-	if isDeviated {
-		// TODO: check other values before invalidating
-		state = models.Denied
-	}
+	// if isDeviated {
+	// 	// TODO: check other values before invalidating
+	// 	state = models.Denied
+	// }
 
-	// Use diff of 5% only is approved
 	// also, allow if the last update timeout is more than 10s
 	lastUpdate := time.Since(currPrice.Timestamp)
-	if lastUpdate > 30*time.Second {
+	deviationTTL := time.Duration(assetSetting.TTL) * time.Second
+	if lastUpdate > deviationTTL {
 		state = models.Approved
 	} else {
-		if weightedAvg-mean > 0.05*mean {
+		isDeviated = math.Abs(weightedAvg-mean) > deviationThreshold
+		if isDeviated {
 			state = models.Approved
 		} else {
-			// state = models.Denied
+			state = models.Denied
 		}
 	}
 
