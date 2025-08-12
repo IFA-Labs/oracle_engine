@@ -134,3 +134,14 @@ type DashboardAPIKeyUsage struct {
 func (DashboardAPIKeyUsage) TableName() string {
 	return "dashboard_api_key_usages"
 }
+
+// handle billing and payment
+type DashboardPayment struct {
+	ID               string    `gorm:"type:text;primaryKey" json:"id"`
+	ProfileID        string    `gorm:"type:text;not null" json:"profile_id"`
+	Amount           float64   `gorm:"type:float8;not null" json:"amount"`
+	Status           string    `gorm:"type:text;not null" json:"status"` //
+	CreatedAt        time.Time `gorm:"type:timestamptz;not null" json:"created_at"`
+	UpdatedAt        time.Time `gorm:"type:timestamptz;not null" json:"updated_at"`
+	SubscriptionType string    `gorm:"type:text;not null" json:"subscription_type"` // e.g., "basic", "premium"
+}
