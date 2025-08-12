@@ -403,6 +403,9 @@ func (t *TimescaleGORM) GetPriceHistory(ctx context.Context, assetID string, sta
 	return result, nil
 }
 
+// create account
+// func (t *TimescaleGORM) CreateDashboardAccount(ctx context.Context, profile G) {}
+
 // Close closes the database connection
 func (t *TimescaleGORM) Close() error {
 	sqlDB, err := t.db.DB()

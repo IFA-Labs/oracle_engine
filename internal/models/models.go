@@ -160,3 +160,16 @@ func CalculatePriceChange(current, historical *UnifiedPrice, period string) *Pri
 		ToTime:    current.Timestamp,
 	}
 }
+
+type CompanyProfile struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Website     string    `json:"website"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	FirstName   string    `json:"first_name"`
+	LastName    string    `json:"last_name"`
+	// dont return password to user
+	Password string `json:"-"`
+}
