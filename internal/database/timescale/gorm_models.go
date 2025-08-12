@@ -90,3 +90,47 @@ type Issuance struct {
 func (Issuance) TableName() string {
 	return "issuances"
 }
+
+type CompanyProfile struct {
+	ID          string    `gorm:"type:text;primaryKey" json:"id"`
+	Name        string    `gorm:"type:text;not null" json:"name"`
+	Description string    `gorm:"type:text" json:"description"`
+	LogoURL     string    `gorm:"type:text" json:"logo_url"`
+	CreatedAt   time.Time `gorm:"type:timestamptz;not null" json:"created_at"`
+	UpdatedAt   time.Time `gorm:"type:timestamptz;not null" json:"updated_at"`
+	// merging user and company profile for now
+	FirstName string `gorm:"type:text;not null" json:"first_name"`
+	LastName  string `gorm:"type:text;not null" json:"last_name"`
+	Password  string `gorm:"type:text;not null" json:"password"`
+	Email     string `gorm:"type:text;not null" json:"email"`
+}
+
+func (CompanyProfile) TableName() string {
+	return "company_profiles"
+}
+
+type DashboardAPIKey struct {
+	ID        string    `gorm:"type:text;primaryKey" json:"id"`
+	ProfileID string    `gorm:"type:text;not null" json:"profile_id"`
+	Key       string    `gorm:"type:text;not null" json:"key"`
+	CreatedAt time.Time `gorm:"type:timestamptz;not null" json:"created_at"`
+	UpdatedAt time.Time `gorm:"type:timestamptz;not null" json:"updated_at"`
+}
+
+func (DashboardAPIKey) TableName() string {
+	return "dashboard_api_keys"
+}
+
+// track user's usage with api keys
+type DashboardAPIKeyUsage struct {
+	ID        string    `gorm:"type:text;primaryKey" json:"id"`
+	ProfileID string    `gorm:"type:text;not null" json:"profile_id"`
+	KeyID     string    `gorm:"type:text;not null" json:"key_id"`
+	Endpoint  string    `gorm:"type:text;not null" json:"endpoint"`
+	CreatedAt time.Time `gorm:"type:timestamptz;not null" json:"created_at"`
+	UpdatedAt time.Time `gorm:"type:timestamptz;not null" json:"updated_at"`
+}
+
+func (DashboardAPIKeyUsage) TableName() string {
+	return "dashboard_api_key_usages"
+}
