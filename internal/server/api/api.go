@@ -62,8 +62,10 @@ func (a *API) RegisterRoutes(router *gin.Engine) {
 	router.GET("/api/prices/stream", a.priceStreamer.HandleStream)
 
 	// Issuance endpoints
-	router.POST("/api/issuances", a.handleIssuances)
+	// router.POST("/api/issuances", a.handleIssuances)
 	router.GET("/api/issuances/:id", a.handleIssuance)
+	// todo: extra issuance filter
+	router.GET("/api/issuances")
 
 	// Asset endpoints
 	router.GET("/api/assets", a.handleAssets)
@@ -73,6 +75,19 @@ func (a *API) RegisterRoutes(router *gin.Engine) {
 
 	url := ginSwagger.URL("/swagger/doc.json")
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
+
+	// todo: dashboard endpoints
+	router.POST("/api/dashboard/signup")
+	router.POST("/api/dashboard/login")
+	router.GET("/api/dashboard/:id/profile")
+	router.POST("/api/dashboard/:id/update-profile")
+	router.POST("/api/dashboard/:id/api-keys")
+	router.GET("/api/dashboard/:id/api-keys")
+	router.DELETE("/api/dashboard/:id/api-keys")
+	// payment section dashboard
+	router.POST("/api/dashboard/:id/payment")
+	router.GET("/api/dashboard/:id/payment/history")
+	router.GET("/api/dashboard/:id/payment/status")
 
 	// Health check endpoint
 	router.GET("/api/health", func(c *gin.Context) {
