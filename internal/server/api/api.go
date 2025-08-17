@@ -96,8 +96,9 @@ func (a *API) RegisterRoutes(router *gin.Engine) {
 	// Protected asset endpoints
 	router.GET("/api/assets", a.authMiddleware.APIKeyAuth(), a.handleAssets)
 
-	// Protected price audit endpoint
+	// Protected price audit endpoints
 	router.GET("/api/prices/:id/audit", a.authMiddleware.APIKeyAuth(), a.handleAuditPrice)
+	router.GET("/api/prices/audit", a.authMiddleware.APIKeyAuth(), a.handleAuditPriceRange)
 
 	// Protected issuance endpoints
 	router.GET("/api/issuances/:id", a.authMiddleware.APIKeyAuth(), a.handleIssuance)
@@ -623,6 +624,85 @@ func (a *API) handleAuditPrice(c *gin.Context) {
 	}
 
 	c.JSON(200, priceAudit)
+}
+
+// @Summary Get price audit by date range
+// @Description Returns audit information for prices within a specified date range
+// @Tags prices
+// @Accept json
+// @Produce json
+// @Param from query string true "Start date in RFC3339 format (e.g., 2024-01-01T00:00:00Z)"
+// @Param to query string true "End date in RFC3339 format (e.g., 2024-01-02T00:00:00Z)"
+// @Param asset query string false "Asset ID to filter by (optional)"
+// @Param limit query int false "Maximum number of records to return (default: 100, max: 1000)"
+// @Param offset query int false "Number of records to skip (default: 0)"
+// @Success 200 {object} object
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /prices/audit [get]
+func (a *API) handleAuditPriceRange(c *gin.Context) {
+	fromStr := c.Query("from")
+	toStr := c.Query("to")
+	
+	if fromStr == "" || toStr == "" {
+		c.JSON(400, gin.H{"error": "Both 'from' and 'to' parameters are required in RFC3339 format"})
+		return
+	}
+
+	// Parse timestamps
+	fromTime, err := time.Parse(time.RFC3339, fromStr)
+	if err != nil {
+		c.JSON(400, gin.H{"error": "Invalid 'from' timestamp format. Use RFC3339 format (e.g., 2024-01-01T00:00:00Z)"})
+		return
+	}
+
+	toTime, err := time.Parse(time.RFC3339, toStr)
+	if err != nil {
+		c.JSON(400, gin.H{"error": "Invalid 'to' timestamp format. Use RFC3339 format (e.g., 2024-01-01T00:00:00Z)"})
+		return
+	}
+
+	// Validate date range
+	if fromTime.After(toTime) {
+		c.JSON(400, gin.H{"error": "'from' timestamp must be before 'to' timestamp"})
+		return
+	}
+
+	// Check if date range is too large (prevent excessive queries)
+	maxDuration := 30 * 24 * time.Hour // 30 days
+	if toTime.Sub(fromTime) > maxDuration {
+		c.JSON(400, gin.H{"error": "Date range cannot exceed 30 days"})
+		return
+	}
+
+	// Parse optional parameters
+	assetID := c.Query("asset")
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	// Validate limit
+	if limit < 1 {
+		limit = 100
+	}
+	if limit > 1000 {
+		limit = 1000
+	}
+
+	// Get audit records for the date range
+	auditRecords, err := a.priceService.AuditPriceRange(c.Request.Context(), fromTime, toTime, assetID, limit, offset)
+	if err != nil {
+		c.JSON(500, gin.H{"error": fmt.Sprintf("Failed to fetch audit records: %v", err)})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"audit_records": auditRecords,
+		"from":          fromTime.Format(time.RFC3339),
+		"to":            toTime.Format(time.RFC3339),
+		"asset":         assetID,
+		"limit":         limit,
+		"offset":        offset,
+	})
 }
 
 // @Summary Get API usage statistics

@@ -3,6 +3,7 @@ package timescale
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
 	"strings"
@@ -334,6 +335,97 @@ func (t *TimescaleDB) AuditPrice(ctx context.Context, id string) (*models.PriceA
 	}
 
 	return &auditData, nil
+}
+
+func (t *TimescaleDB) AuditPriceRange(ctx context.Context, fromTime, toTime time.Time, assetID string, limit, offset int) ([]*models.PriceAudit, error) {
+	// Build the base query
+	baseQuery := `
+		SELECT p.id, p.asset_id, p.value, p.expo, p.timestamp, p.source, p.req_hash
+		FROM prices p
+		WHERE p.timestamp >= $1 AND p.timestamp <= $2
+	`
+	
+	args := []interface{}{fromTime, toTime}
+	argCount := 2
+	
+	// Add asset filter if provided
+	if assetID != "" {
+		argCount++
+		baseQuery += fmt.Sprintf(" AND p.asset_id = $%d", argCount)
+		args = append(args, assetID)
+	}
+	
+	// Add ordering and pagination
+	baseQuery += " ORDER BY p.timestamp DESC"
+	
+	if limit > 0 {
+		argCount++
+		baseQuery += fmt.Sprintf(" LIMIT $%d", argCount)
+		args = append(args, limit)
+	}
+	
+	if offset > 0 {
+		argCount++
+		baseQuery += fmt.Sprintf(" OFFSET $%d", argCount)
+		args = append(args, offset)
+	}
+
+	rows, err := t.db.QueryContext(ctx, baseQuery, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var auditRecords []*models.PriceAudit
+	
+	for rows.Next() {
+		var up models.UnifiedPrice
+		err := rows.Scan(
+			&up.ID, &up.AssetID, &up.Value, &up.Expo, &up.Timestamp, &up.Source, &up.ReqHash,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Get raw prices for this aggregated price
+		rawQuery := `
+			SELECT r.id, r.source, r.req_url, r.asset_id, r.value, r.expo, r.timestamp
+			FROM price_raw_price_links l
+			INNER JOIN raw_prices r ON r.id = l.raw_price_id
+			WHERE l.price_id = $1
+			ORDER BY r.timestamp;
+		`
+		
+		rawRows, err := t.db.QueryContext(ctx, rawQuery, up.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		var raws []models.Price
+		for rawRows.Next() {
+			var rp models.Price
+			err := rawRows.Scan(&rp.ID, &rp.Source, &rp.ReqURL, &rp.InternalAssetIdentity, &rp.Value, &rp.Expo, &rp.Timestamp)
+			if err != nil {
+				rawRows.Close()
+				return nil, err
+			}
+			raws = append(raws, rp)
+		}
+		rawRows.Close()
+
+		auditData := &models.PriceAudit{
+			PriceID:         up.ID,
+			AssetID:         up.AssetID,
+			AggregatedPrice: up,
+			RawPrices:       raws,
+			CreatedAt:       up.Timestamp,
+			UpdatedAt:       up.Timestamp,
+		}
+		
+		auditRecords = append(auditRecords, auditData)
+	}
+
+	return auditRecords, nil
 }
 
 func (t *TimescaleDB) GetHistoricalPrice(ctx context.Context, assetID string, lookback time.Duration) (*models.UnifiedPrice, error) {

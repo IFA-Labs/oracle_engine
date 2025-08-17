@@ -12,6 +12,7 @@ type PriceRepository interface {
 	GetLastPrice(ctx context.Context, assetID string) (*models.UnifiedPrice, error)
 	GetHistoricalPrice(ctx context.Context, assetID string, lookback time.Duration) (*models.UnifiedPrice, error)
 	AuditPrice(ctx context.Context, assetID string) (*models.PriceAudit, error)
+	AuditPriceRange(ctx context.Context, fromTime, toTime time.Time, assetID string, limit, offset int) ([]*models.PriceAudit, error)
 }
 
 type priceRepository struct {
@@ -36,4 +37,8 @@ func (r *priceRepository) GetHistoricalPrice(ctx context.Context, assetID string
 
 func (r *priceRepository) AuditPrice(ctx context.Context, assetID string) (*models.PriceAudit, error) {
 	return r.db.AuditPrice(ctx, assetID)
+}
+
+func (r *priceRepository) AuditPriceRange(ctx context.Context, fromTime, toTime time.Time, assetID string, limit, offset int) ([]*models.PriceAudit, error) {
+	return r.db.AuditPriceRange(ctx, fromTime, toTime, assetID, limit, offset)
 }

@@ -12,6 +12,7 @@ type PriceService interface {
 	GetHistoricalPrice(ctx context.Context, assetID string, lookback time.Duration) (*models.UnifiedPrice, error)
 	SavePrice(ctx context.Context, price models.UnifiedPrice) error
 	AuditPrice(ctx context.Context, assetID string) (*models.PriceAudit, error)
+	AuditPriceRange(ctx context.Context, fromTime, toTime time.Time, assetID string, limit, offset int) ([]*models.PriceAudit, error)
 }
 
 type priceService struct {
@@ -36,4 +37,8 @@ func (s *priceService) SavePrice(ctx context.Context, price models.UnifiedPrice)
 
 func (s *priceService) AuditPrice(ctx context.Context, assetID string) (*models.PriceAudit, error) {
 	return s.priceRepo.AuditPrice(ctx, assetID)
+}
+
+func (s *priceService) AuditPriceRange(ctx context.Context, fromTime, toTime time.Time, assetID string, limit, offset int) ([]*models.PriceAudit, error) {
+	return s.priceRepo.AuditPriceRange(ctx, fromTime, toTime, assetID, limit, offset)
 }
