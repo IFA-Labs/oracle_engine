@@ -92,13 +92,13 @@ func (Issuance) TableName() string {
 }
 
 type CompanyProfile struct {
-	ID               string    `gorm:"type:text;primaryKey" json:"id"`
-	Name             string    `gorm:"type:text;not null" json:"name"`
-	Description      string    `gorm:"type:text" json:"description"`
-	Website          string    `gorm:"type:text" json:"website"`
-	LogoURL          string    `gorm:"type:text" json:"logo_url"`
-	CreatedAt        time.Time `gorm:"type:timestamptz;not null" json:"created_at"`
-	UpdatedAt        time.Time `gorm:"type:timestamptz;not null" json:"updated_at"`
+	ID          string    `gorm:"type:text;primaryKey" json:"id"`
+	Name        string    `gorm:"type:text;not null" json:"name"`
+	Description string    `gorm:"type:text" json:"description"`
+	Website     string    `gorm:"type:text" json:"website"`
+	LogoURL     string    `gorm:"type:text" json:"logo_url"`
+	CreatedAt   time.Time `gorm:"type:timestamptz;not null" json:"created_at"`
+	UpdatedAt   time.Time `gorm:"type:timestamptz;not null" json:"updated_at"`
 	// merging user and company profile for now
 	FirstName        string `gorm:"type:text;not null" json:"first_name"`
 	LastName         string `gorm:"type:text;not null" json:"last_name"`

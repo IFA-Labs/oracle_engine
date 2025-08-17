@@ -173,7 +173,7 @@ type CompanyProfile struct {
 	FirstName        string    `json:"first_name"`
 	LastName         string    `json:"last_name"`
 	Email            string    `json:"email"`
-	Password         string    `json:"-"` // dont return password to user
+	Password         string    `json:"-"`                 // dont return password to user
 	SubscriptionPlan string    `json:"subscription_plan"` // "free", "developer", "professional", "enterprise"
 }
 

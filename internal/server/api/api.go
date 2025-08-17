@@ -80,12 +80,12 @@ func (a *API) RegisterRoutes(router *gin.Engine) {
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
 		c.Header("Access-Control-Expose-Headers", "X-Total-Count")
-		
+
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
 		}
-		
+
 		c.Next()
 	})
 
@@ -639,30 +639,30 @@ func (a *API) handleAuditPrice(c *gin.Context) {
 // @Router /dashboard/{id}/usage [get]
 func (a *API) handleGetAPIUsage(c *gin.Context) {
 	profileID := c.Param("id")
-	
+
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	
+
 	if page < 1 {
 		page = 1
 	}
 	if limit < 1 || limit > 100 {
 		limit = 20
 	}
-	
+
 	offset := (page - 1) * limit
-	
+
 	// Get API usage records
 	usage, err := a.dashboardService.GetAPIUsage(c.Request.Context(), profileID, limit, offset)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Failed to get API usage"})
 		return
 	}
-	
+
 	c.JSON(200, gin.H{
-		"usage":    usage,
-		"page":     page,
-		"limit":    limit,
+		"usage": usage,
+		"page":  page,
+		"limit": limit,
 	})
 }
 

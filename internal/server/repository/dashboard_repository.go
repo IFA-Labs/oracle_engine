@@ -298,7 +298,7 @@ func (r *dashboardRepository) UpdateAPIKeyLastUsed(ctx context.Context, keyID st
 
 func (r *dashboardRepository) RecordAPIUsage(ctx context.Context, usage *models.APIKeyUsage) error {
 	logging.Logger.Info("Recording API usage", zap.String("key_id", usage.KeyID), zap.String("endpoint", usage.Endpoint), zap.String("method", usage.Method), zap.String("ip_address", usage.IPAddress), zap.String("user_agent", usage.UserAgent))
-	
+
 	dbUsage := timescale.DashboardAPIKeyUsage{
 		ID:        uuid.New().String(),
 		ProfileID: usage.ProfileID,
@@ -315,7 +315,7 @@ func (r *dashboardRepository) RecordAPIUsage(ctx context.Context, usage *models.
 		logging.Logger.Error("Failed to record API usage", zap.Error(err), zap.String("key_id", usage.KeyID))
 		return err
 	}
-	
+
 	logging.Logger.Info("Successfully recorded API usage", zap.String("usage_id", dbUsage.ID), zap.String("key_id", usage.KeyID))
 	return nil
 }
@@ -356,11 +356,11 @@ func (r *dashboardRepository) GetMonthlyUsage(ctx context.Context, keyID string)
 	var count int64
 	now := time.Now()
 	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
-	
+
 	err := r.db.WithContext(ctx).Model(&timescale.DashboardAPIKeyUsage{}).
 		Where("key_id = ? AND created_at >= ?", keyID, startOfMonth).
 		Count(&count).Error
-	
+
 	return count, err
 }
 
@@ -368,11 +368,11 @@ func (r *dashboardRepository) GetDailyUsage(ctx context.Context, keyID string) (
 	var count int64
 	now := time.Now()
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	
+
 	err := r.db.WithContext(ctx).Model(&timescale.DashboardAPIKeyUsage{}).
 		Where("key_id = ? AND created_at >= ?", keyID, startOfDay).
 		Count(&count).Error
-	
+
 	return count, err
 }
 
@@ -380,20 +380,20 @@ func (r *dashboardRepository) CheckRateLimit(ctx context.Context, keyID string, 
 	if rateLimitHours <= 0 {
 		return false, nil // No rate limit for enterprise or custom plans
 	}
-	
+
 	var lastUsage timescale.DashboardAPIKeyUsage
 	cutoffTime := time.Now().Add(-time.Duration(rateLimitHours) * time.Hour)
-	
+
 	err := r.db.WithContext(ctx).Where("key_id = ? AND created_at >= ?", keyID, cutoffTime).
 		Order("created_at DESC").First(&lastUsage).Error
-	
+
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return false, nil // No recent requests, not rate limited
 		}
 		return false, fmt.Errorf("failed to check rate limit: %w", err)
 	}
-	
+
 	// If we found a recent request within the rate limit window, user is rate limited
 	return true, nil
 }
