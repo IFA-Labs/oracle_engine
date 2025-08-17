@@ -344,26 +344,26 @@ func (t *TimescaleDB) AuditPriceRange(ctx context.Context, fromTime, toTime time
 		FROM prices p
 		WHERE p.timestamp >= $1 AND p.timestamp <= $2
 	`
-	
+
 	args := []interface{}{fromTime, toTime}
 	argCount := 2
-	
+
 	// Add asset filter if provided
 	if assetID != "" {
 		argCount++
 		baseQuery += fmt.Sprintf(" AND p.asset_id = $%d", argCount)
 		args = append(args, assetID)
 	}
-	
+
 	// Add ordering and pagination
 	baseQuery += " ORDER BY p.timestamp DESC"
-	
+
 	if limit > 0 {
 		argCount++
 		baseQuery += fmt.Sprintf(" LIMIT $%d", argCount)
 		args = append(args, limit)
 	}
-	
+
 	if offset > 0 {
 		argCount++
 		baseQuery += fmt.Sprintf(" OFFSET $%d", argCount)
@@ -377,7 +377,7 @@ func (t *TimescaleDB) AuditPriceRange(ctx context.Context, fromTime, toTime time
 	defer rows.Close()
 
 	var auditRecords []*models.PriceAudit
-	
+
 	for rows.Next() {
 		var up models.UnifiedPrice
 		err := rows.Scan(
@@ -395,7 +395,7 @@ func (t *TimescaleDB) AuditPriceRange(ctx context.Context, fromTime, toTime time
 			WHERE l.price_id = $1
 			ORDER BY r.timestamp;
 		`
-		
+
 		rawRows, err := t.db.QueryContext(ctx, rawQuery, up.ID)
 		if err != nil {
 			return nil, err
@@ -421,7 +421,7 @@ func (t *TimescaleDB) AuditPriceRange(ctx context.Context, fromTime, toTime time
 			CreatedAt:       up.Timestamp,
 			UpdatedAt:       up.Timestamp,
 		}
-		
+
 		auditRecords = append(auditRecords, auditData)
 	}
 

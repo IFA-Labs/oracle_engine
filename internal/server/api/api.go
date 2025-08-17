@@ -643,7 +643,7 @@ func (a *API) handleAuditPrice(c *gin.Context) {
 func (a *API) handleAuditPriceRange(c *gin.Context) {
 	fromStr := c.Query("from")
 	toStr := c.Query("to")
-	
+
 	if fromStr == "" || toStr == "" {
 		c.JSON(400, gin.H{"error": "Both 'from' and 'to' parameters are required in RFC3339 format"})
 		return
