@@ -44,18 +44,33 @@ var DefaultAssetSetting = AssetSetting{
 
 type ApiKey map[string]string
 
+type SubscriptionPlan struct {
+	Name           string  `mapstructure:"name"`
+	Price          float64 `mapstructure:"price"`           // Monthly price in USD
+	APIRequests    int64   `mapstructure:"api_requests"`    // Monthly API request limit (0 = unlimited)
+	RateLimit      int     `mapstructure:"rate_limit"`      // Rate limit in hours
+	DataAccess     string  `mapstructure:"data_access"`     // Description of data access level
+	CustomPairs    int     `mapstructure:"custom_pairs"`    // Number of custom pairs allowed
+	RequestCost    float64 `mapstructure:"request_cost"`    // Cost per request in USD
+	Support        string  `mapstructure:"support"`         // Support level description
+	HistoricalData bool    `mapstructure:"historical_data"` // Access to historical data
+	PrivateData    bool    `mapstructure:"private_data"`    // Access to private data feeds
+}
+
 type Config struct {
-	PricePoolTTL         int              `mapstructure:"price_pool_ttl"`
-	RELAY_TIME_THRESHOLD int              `mapstructure:"RELAY_TIME_THRESHOLD"`
-	AggregatorNodes      int              `mapstructure:"aggregator_nodes"`
-	ConsensusThresh      float64          `mapstructure:"consensus_threshold"`
-	AggrDevPerc          float32          `mapstructure:"aggr_dev_perc"`
-	Assets               []AssetConfig    `mapstructure:"assets"`
-	ApiKeys              ApiKey           `mapstructure:"api_keys"`
-	Contracts            []ContractConfig `mapstructure:"contracts"`
-	PrivateKey           string           `mapstructure:"private_key"`
-	DB_URL               string           `mapstructure:"DB_URL"`
-	SERVER_PORT          string           `mapstructure:"server_port"`
+	PricePoolTTL         int                         `mapstructure:"price_pool_ttl"`
+	RELAY_TIME_THRESHOLD int                         `mapstructure:"RELAY_TIME_THRESHOLD"`
+	AggregatorNodes      int                         `mapstructure:"aggregator_nodes"`
+	ConsensusThresh      float64                     `mapstructure:"consensus_threshold"`
+	AggrDevPerc          float32                     `mapstructure:"aggr_dev_perc"`
+	Assets               []AssetConfig               `mapstructure:"assets"`
+	ApiKeys              ApiKey                      `mapstructure:"api_keys"`
+	Contracts            []ContractConfig            `mapstructure:"contracts"`
+	PrivateKey           string                      `mapstructure:"private_key"`
+	DB_URL               string                      `mapstructure:"DB_URL"`
+	SERVER_PORT          string                      `mapstructure:"server_port"`
+	JWTSecret            string                      `mapstructure:"jwt_secret"`
+	SubscriptionPlans    map[string]SubscriptionPlan `mapstructure:"subscription_plans"`
 }
 
 func Load() *Config {
@@ -73,6 +88,56 @@ func Load() *Config {
 		"fixer":         os.Getenv("FIXER_API_KEY"),
 		"currencylayer": os.Getenv("CURRENCYLAYER_API_KEY"),
 		"moralis":       os.Getenv("MORALIS_API_KEY"),
+	})
+	viper.SetDefault("subscription_plans", map[string]SubscriptionPlan{
+		"free": {
+			Name:           "Free tier",
+			Price:          0,
+			APIRequests:    1000,
+			RateLimit:      2, // 2 hours
+			DataAccess:     "Two feeds",
+			CustomPairs:    0,
+			RequestCost:    0,
+			Support:        "Email & Community",
+			HistoricalData: false,
+			PrivateData:    false,
+		},
+		"developer": {
+			Name:           "Developer tier",
+			Price:          50,
+			APIRequests:    10000,
+			RateLimit:      4, // 4 hours
+			DataAccess:     "All feeds",
+			CustomPairs:    0,
+			RequestCost:    0.0005,
+			Support:        "24/7 support",
+			HistoricalData: false,
+			PrivateData:    false,
+		},
+		"professional": {
+			Name:           "Professional tier",
+			Price:          100,
+			APIRequests:    100000,
+			RateLimit:      6, // 6 hours
+			DataAccess:     "All feeds + Historical data",
+			CustomPairs:    3,
+			RequestCost:    0.0002,
+			Support:        "24/7 support",
+			HistoricalData: true,
+			PrivateData:    false,
+		},
+		"enterprise": {
+			Name:           "Enterprise tier",
+			Price:          0, // Custom pricing
+			APIRequests:    0, // Unlimited
+			RateLimit:      0, // Custom
+			DataAccess:     "All feeds + Private",
+			CustomPairs:    -1, // Custom/unlimited
+			RequestCost:    0,  // Custom
+			Support:        "24/7 support + dedicated engineer",
+			HistoricalData: true,
+			PrivateData:    true,
+		},
 	})
 
 	_ = godotenv.Load()
@@ -92,6 +157,13 @@ func Load() *Config {
 
 	if cfg.DB_URL == "" {
 		cfg.DB_URL = os.Getenv("DB_URL")
+	}
+
+	if cfg.JWTSecret == "" {
+		cfg.JWTSecret = os.Getenv("JWT_SECRET")
+		if cfg.JWTSecret == "" {
+			cfg.JWTSecret = "your-secret-key-here" // Default secret (not secure for production)
+		}
 	}
 
 	return &cfg

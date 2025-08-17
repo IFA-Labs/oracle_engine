@@ -8,7 +8,7 @@ assets:
   - name: "USDT/USD"
     internalAssetIdentity: "0xUSDT"
     settings:
-      TTL: 4 * 3600 # 4 hours
+      TTL: 14400 # 4 hours (4 * 3600 seconds)
       devPerc: 0.05
     feeds:
       - name: "pyth"
@@ -62,3 +62,53 @@ contracts:
     chainID: "84532"
     chainName: "base-testnet"
     rpc: ""
+
+# Subscription Plans Configuration
+subscription_plans:
+  free:
+    name: "Free tier"
+    price: 0
+    api_requests: 1000
+    rate_limit: 2 # hours
+    data_access: "Two feeds"
+    custom_pairs: 0
+    request_cost: 0
+    support: "Email & Community"
+    historical_data: false
+    private_data: false
+  
+  developer:
+    name: "Developer tier"
+    price: 50
+    api_requests: 10000
+    rate_limit: 4 # hours
+    data_access: "All feeds"
+    custom_pairs: 0
+    request_cost: 0.0005
+    support: "24/7 support"
+    historical_data: false
+    private_data: false
+    
+  professional:
+    name: "Professional tier"
+    price: 100
+    api_requests: 100000
+    rate_limit: 6 # hours
+    data_access: "All feeds + Historical data"
+    custom_pairs: 3
+    request_cost: 0.0002
+    support: "24/7 support"
+    historical_data: true
+    private_data: false
+    
+  enterprise:
+    name: "Enterprise tier"
+    price: 0 # Custom pricing
+    api_requests: 0 # Unlimited
+    rate_limit: 0 # Custom
+    data_access: "All feeds + Private"
+    custom_pairs: -1 # Custom/unlimited
+    request_cost: 0 # Custom
+    support: "24/7 support + dedicated engineer"
+    historical_data: true
+    private_data: true

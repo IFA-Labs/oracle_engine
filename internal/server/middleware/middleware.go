@@ -5,10 +5,12 @@ import (
 	"oracle_engine/internal/logging"
 	"time"
 
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
-// CORS middleware
+// CORS middleware for standard http
 func CORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -24,7 +26,34 @@ func CORS(next http.Handler) http.Handler {
 	})
 }
 
-// Logging middleware
+// SetupCORS configures CORS middleware for Gin
+func SetupCORS() gin.HandlerFunc {
+	return cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000", "http://localhost:8080", "https://yourdomain.com"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-API-Key"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	})
+}
+
+// RequestLogger logs HTTP requests for Gin
+func RequestLogger() gin.HandlerFunc {
+	return gin.LoggerWithConfig(gin.LoggerConfig{
+		SkipPaths: []string{"/api/health"},
+	})
+}
+
+// RateLimiter would implement rate limiting (placeholder)
+func RateLimiter() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// TODO: Implement rate limiting logic
+		c.Next()
+	}
+}
+
+// Logging middleware for standard http
 func Logging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -40,7 +69,7 @@ func Logging(next http.Handler) http.Handler {
 	})
 }
 
-// Recovery middleware
+// Recovery middleware for standard http
 func Recovery(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {

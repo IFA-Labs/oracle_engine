@@ -92,17 +92,24 @@ func (Issuance) TableName() string {
 }
 
 type CompanyProfile struct {
-	ID          string    `gorm:"type:text;primaryKey" json:"id"`
-	Name        string    `gorm:"type:text;not null" json:"name"`
-	Description string    `gorm:"type:text" json:"description"`
-	LogoURL     string    `gorm:"type:text" json:"logo_url"`
-	CreatedAt   time.Time `gorm:"type:timestamptz;not null" json:"created_at"`
-	UpdatedAt   time.Time `gorm:"type:timestamptz;not null" json:"updated_at"`
+	ID               string    `gorm:"type:text;primaryKey" json:"id"`
+	Name             string    `gorm:"type:text;not null" json:"name"`
+	Description      string    `gorm:"type:text" json:"description"`
+	Website          string    `gorm:"type:text" json:"website"`
+	LogoURL          string    `gorm:"type:text" json:"logo_url"`
+	CreatedAt        time.Time `gorm:"type:timestamptz;not null" json:"created_at"`
+	UpdatedAt        time.Time `gorm:"type:timestamptz;not null" json:"updated_at"`
 	// merging user and company profile for now
-	FirstName string `gorm:"type:text;not null" json:"first_name"`
-	LastName  string `gorm:"type:text;not null" json:"last_name"`
-	Password  string `gorm:"type:text;not null" json:"password"`
-	Email     string `gorm:"type:text;not null" json:"email"`
+	FirstName        string `gorm:"type:text;not null" json:"first_name"`
+	LastName         string `gorm:"type:text;not null" json:"last_name"`
+	Password         string `gorm:"type:text;not null" json:"-"`
+	Email            string `gorm:"type:text;not null;uniqueIndex" json:"email"`
+	SubscriptionPlan string `gorm:"type:text;not null;default:'free'" json:"subscription_plan"` // free, developer, professional, enterprise
+
+	// Relationships
+	APIKeys  []DashboardAPIKey      `gorm:"foreignKey:ProfileID" json:"api_keys,omitempty"`
+	Payments []DashboardPayment     `gorm:"foreignKey:ProfileID" json:"payments,omitempty"`
+	Usage    []DashboardAPIKeyUsage `gorm:"foreignKey:ProfileID" json:"usage,omitempty"`
 }
 
 func (CompanyProfile) TableName() string {
@@ -110,11 +117,19 @@ func (CompanyProfile) TableName() string {
 }
 
 type DashboardAPIKey struct {
-	ID        string    `gorm:"type:text;primaryKey" json:"id"`
-	ProfileID string    `gorm:"type:text;not null" json:"profile_id"`
-	Key       string    `gorm:"type:text;not null" json:"key"`
-	CreatedAt time.Time `gorm:"type:timestamptz;not null" json:"created_at"`
-	UpdatedAt time.Time `gorm:"type:timestamptz;not null" json:"updated_at"`
+	ID        string     `gorm:"type:text;primaryKey" json:"id"`
+	ProfileID string     `gorm:"type:text;not null;index" json:"profile_id"`
+	Name      string     `gorm:"type:text;not null" json:"name"`
+	KeyPrefix string     `gorm:"type:text;not null;uniqueIndex" json:"key_prefix"` // First 16 chars of the API key for fast lookup
+	KeyHash   string     `gorm:"type:text;not null;uniqueIndex" json:"key_hash"`
+	IsActive  bool       `gorm:"type:boolean;not null;default:true" json:"is_active"`
+	LastUsed  *time.Time `gorm:"type:timestamptz" json:"last_used"`
+	CreatedAt time.Time  `gorm:"type:timestamptz;not null" json:"created_at"`
+	UpdatedAt time.Time  `gorm:"type:timestamptz;not null" json:"updated_at"`
+
+	// Relationships
+	Profile CompanyProfile         `gorm:"foreignKey:ProfileID" json:"profile,omitempty"`
+	Usage   []DashboardAPIKeyUsage `gorm:"foreignKey:KeyID" json:"usage,omitempty"`
 }
 
 func (DashboardAPIKey) TableName() string {
@@ -124,11 +139,17 @@ func (DashboardAPIKey) TableName() string {
 // track user's usage with api keys
 type DashboardAPIKeyUsage struct {
 	ID        string    `gorm:"type:text;primaryKey" json:"id"`
-	ProfileID string    `gorm:"type:text;not null" json:"profile_id"`
-	KeyID     string    `gorm:"type:text;not null" json:"key_id"`
+	ProfileID string    `gorm:"type:text;not null;index" json:"profile_id"`
+	KeyID     string    `gorm:"type:text;not null;index" json:"key_id"`
 	Endpoint  string    `gorm:"type:text;not null" json:"endpoint"`
+	Method    string    `gorm:"type:text;not null" json:"method"`
+	IPAddress string    `gorm:"type:text" json:"ip_address"`
+	UserAgent string    `gorm:"type:text" json:"user_agent"`
 	CreatedAt time.Time `gorm:"type:timestamptz;not null" json:"created_at"`
-	UpdatedAt time.Time `gorm:"type:timestamptz;not null" json:"updated_at"`
+
+	// Relationships
+	Profile CompanyProfile  `gorm:"foreignKey:ProfileID" json:"profile,omitempty"`
+	APIKey  DashboardAPIKey `gorm:"foreignKey:KeyID" json:"api_key,omitempty"`
 }
 
 func (DashboardAPIKeyUsage) TableName() string {
@@ -138,10 +159,20 @@ func (DashboardAPIKeyUsage) TableName() string {
 // handle billing and payment
 type DashboardPayment struct {
 	ID               string    `gorm:"type:text;primaryKey" json:"id"`
-	ProfileID        string    `gorm:"type:text;not null" json:"profile_id"`
+	ProfileID        string    `gorm:"type:text;not null;index" json:"profile_id"`
 	Amount           float64   `gorm:"type:float8;not null" json:"amount"`
-	Status           string    `gorm:"type:text;not null" json:"status"` //
+	Currency         string    `gorm:"type:text;not null;default:'USD'" json:"currency"`
+	Status           string    `gorm:"type:text;not null" json:"status"`            // "pending", "completed", "failed", "refunded"
+	SubscriptionType string    `gorm:"type:text;not null" json:"subscription_type"` // e.g., "basic", "premium", "enterprise"
+	PaymentMethod    string    `gorm:"type:text;not null" json:"payment_method"`    // "card", "stripe", "paypal"
+	PaymentIntentID  string    `gorm:"type:text" json:"payment_intent_id"`          // External payment provider ID
 	CreatedAt        time.Time `gorm:"type:timestamptz;not null" json:"created_at"`
 	UpdatedAt        time.Time `gorm:"type:timestamptz;not null" json:"updated_at"`
-	SubscriptionType string    `gorm:"type:text;not null" json:"subscription_type"` // e.g., "basic", "premium"
+
+	// Relationships
+	Profile CompanyProfile `gorm:"foreignKey:ProfileID" json:"profile,omitempty"`
+}
+
+func (DashboardPayment) TableName() string {
+	return "dashboard_payments"
 }

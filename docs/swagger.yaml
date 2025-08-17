@@ -1,11 +1,108 @@
 basePath: /api
 definitions:
+  models.APIKey:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      key:
+        description: Only show on creation
+        type: string
+      last_used:
+        type: string
+      name:
+        type: string
+      profile_id:
+        type: string
+      subscription_plan:
+        description: Added for rate limiting context
+        type: string
+      updated_at:
+        type: string
+    type: object
   models.AssetData:
     properties:
       asset:
         type: string
       asset_id:
         type: string
+    type: object
+  models.CompanyProfile:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      email:
+        type: string
+      first_name:
+        type: string
+      id:
+        type: string
+      last_name:
+        type: string
+      logo_url:
+        type: string
+      name:
+        type: string
+      subscription_plan:
+        description: '"free", "developer", "professional", "enterprise"'
+        type: string
+      updated_at:
+        type: string
+      website:
+        type: string
+    type: object
+  models.CreateAPIKeyRequest:
+    properties:
+      name:
+        maxLength: 100
+        minLength: 1
+        type: string
+    required:
+    - name
+    type: object
+  models.CreateAPIKeyResponse:
+    properties:
+      id:
+        type: string
+      key:
+        type: string
+      message:
+        type: string
+      name:
+        type: string
+    type: object
+  models.CreatePaymentRequest:
+    properties:
+      amount:
+        type: number
+      currency:
+        enum:
+        - USD
+        - EUR
+        - GBP
+        type: string
+      payment_method:
+        enum:
+        - card
+        - stripe
+        - paypal
+        type: string
+      subscription_type:
+        enum:
+        - basic
+        - premium
+        - enterprise
+        type: string
+    required:
+    - amount
+    - currency
+    - payment_method
+    - subscription_type
     type: object
   models.Issuance:
     properties:
@@ -44,6 +141,64 @@ definitions:
     - Denied
     - Approved
     - Confirmed
+  models.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  models.LoginResponse:
+    properties:
+      access_token:
+        type: string
+      email:
+        type: string
+      expires_in:
+        type: integer
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  models.Payment:
+    properties:
+      amount:
+        type: number
+      created_at:
+        type: string
+      currency:
+        type: string
+      id:
+        type: string
+      payment_method:
+        type: string
+      profile_id:
+        type: string
+      status:
+        description: '"pending", "completed", "failed", "refunded"'
+        type: string
+      subscription_type:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  models.PaymentHistoryResponse:
+    properties:
+      page:
+        type: integer
+      page_size:
+        type: integer
+      payments:
+        items:
+          $ref: '#/definitions/models.Payment'
+        type: array
+      total_count:
+        type: integer
+    type: object
   models.Price:
     properties:
       asset:
@@ -104,6 +259,38 @@ definitions:
         description: Current time
         type: string
     type: object
+  models.SignUpRequest:
+    properties:
+      description:
+        type: string
+      email:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      name:
+        description: company name
+        type: string
+      password:
+        minLength: 8
+        type: string
+      website:
+        type: string
+    required:
+    - email
+    - first_name
+    - last_name
+    - name
+    - password
+    type: object
+  models.SignUpResponse:
+    properties:
+      id:
+        type: string
+      message:
+        type: string
+    type: object
   models.UnifiedPrice:
     properties:
       assetID:
@@ -137,6 +324,21 @@ definitions:
         description: Cant use in64 due to overflow
         type: number
     type: object
+  models.UpdateProfileRequest:
+    properties:
+      description:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      logo_url:
+        type: string
+      name:
+        type: string
+      website:
+        type: string
+    type: object
 host: 146.190.186.116:8000
 info:
   contact:
@@ -166,6 +368,465 @@ paths:
       summary: Get available assets
       tags:
       - assets
+  /dashboard/{id}/api-keys:
+    get:
+      description: Get all API keys for a profile
+      parameters:
+      - description: Profile ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.APIKey'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get API Keys
+      tags:
+      - dashboard
+    post:
+      consumes:
+      - application/json
+      description: Create a new API key for accessing the Oracle Engine API
+      parameters:
+      - description: Profile ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Create API key request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateAPIKeyRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.CreateAPIKeyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create API Key
+      tags:
+      - dashboard
+  /dashboard/{id}/api-keys/{key_id}:
+    delete:
+      description: Delete an API key
+      parameters:
+      - description: Profile ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: API Key ID
+        in: path
+        name: key_id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete API Key
+      tags:
+      - dashboard
+  /dashboard/{id}/payment:
+    post:
+      consumes:
+      - application/json
+      description: Create a new payment (placeholder implementation)
+      parameters:
+      - description: Profile ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Create payment request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreatePaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Payment'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create Payment
+      tags:
+      - dashboard
+  /dashboard/{id}/payment/history:
+    get:
+      description: Get payment history for a profile
+      parameters:
+      - description: Profile ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Page size (default: 20, max: 100)'
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.PaymentHistoryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Payment History
+      tags:
+      - dashboard
+  /dashboard/{id}/profile:
+    get:
+      description: Get company profile information
+      parameters:
+      - description: Profile ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.CompanyProfile'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get User Profile
+      tags:
+      - dashboard
+    put:
+      consumes:
+      - application/json
+      description: Update company profile information
+      parameters:
+      - description: Profile ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update profile request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.CompanyProfile'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update User Profile
+      tags:
+      - dashboard
+  /dashboard/{id}/usage:
+    get:
+      consumes:
+      - application/json
+      description: Returns API usage statistics for the authenticated user
+      parameters:
+      - description: Profile ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get API usage statistics
+      tags:
+      - dashboard
+  /dashboard/login:
+    post:
+      consumes:
+      - application/json
+      description: Login with email and password
+      parameters:
+      - description: Login request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: User Login
+      tags:
+      - dashboard
+  /dashboard/signup:
+    post:
+      consumes:
+      - application/json
+      description: Create a new company profile and user account
+      parameters:
+      - description: Sign up request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.SignUpRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.SignUpResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: User Sign Up a company
+      tags:
+      - dashboard
   /issuances/{id}:
     get:
       consumes:
@@ -249,4 +910,30 @@ paths:
       summary: Model Stream price updates
       tags:
       - prices
+  /subscription/plans:
+    get:
+      consumes:
+      - application/json
+      description: Returns available subscription plans with pricing and limits
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: Get subscription plans
+      tags:
+      - subscription
+securityDefinitions:
+  ApiKeyAuth:
+    description: API key for accessing Oracle Engine endpoints.
+    in: header
+    name: X-API-Key
+    type: apiKey
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

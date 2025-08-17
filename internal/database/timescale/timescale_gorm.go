@@ -46,7 +46,8 @@ func (t *TimescaleGORM) Initialize(ctx context.Context) error {
 	}
 
 	// Auto-migrate tables
-	if err := t.db.AutoMigrate(&Price{}, &RawPrice{}, &PriceRawPriceLink{}, &Issuance{}); err != nil {
+	if err := t.db.AutoMigrate(&Price{}, &RawPrice{}, &PriceRawPriceLink{}, &Issuance{},
+		&CompanyProfile{}, &DashboardAPIKey{}, &DashboardAPIKeyUsage{}, &DashboardPayment{}); err != nil {
 		return err
 	}
 
@@ -413,4 +414,9 @@ func (t *TimescaleGORM) Close() error {
 		return err
 	}
 	return sqlDB.Close()
+}
+
+// GetDB returns the GORM database instance for dashboard operations
+func (t *TimescaleGORM) GetDB() *gorm.DB {
+	return t.db
 }
