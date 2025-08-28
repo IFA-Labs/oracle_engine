@@ -26,7 +26,7 @@ import (
 // @version 1.0
 // @description IFA LABS Oracle Engine API provides real-time, reliable asset prices using an aggregated moving window algorithm to ensure stability and reduce manipulation.
 // @host localhost:8000
-// @host 146.190.186.116:8000
+// @host api.ifalabs.com
 // @BasePath /api
 // @contact.name   IfaLabs
 // @contact.url     https://ifalabs.com

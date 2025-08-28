@@ -1496,7 +1496,7 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "146.190.186.116:8000",
+	Host:             "api.ifalabs.com",
 	BasePath:         "/api",
 	Schemes:          []string{},
 	Title:            "Oracle Engine API",

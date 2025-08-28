@@ -14,7 +14,7 @@
         },
         "version": "1.0"
     },
-    "host": "146.190.186.116:8000",
+    "host": "api.ifalabs.com",
     "basePath": "/api",
     "paths": {
         "/assets": {

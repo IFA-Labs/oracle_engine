@@ -339,7 +339,7 @@ definitions:
       website:
         type: string
     type: object
-host: 146.190.186.116:8000
+host: api.ifalabs.com
 info:
   contact:
     email: ifalabstudio@gmail.com
