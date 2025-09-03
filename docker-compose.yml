@@ -55,7 +55,7 @@ services:
       - "5430:5432"
     networks:
       - oracle-net
-  
+
   nginx:
     image: nginx:latest
     container_name: nginx
