@@ -161,9 +161,9 @@ func (s *dashboardService) CheckAPILimits(ctx context.Context, keyData *models.A
 		return false, false, fmt.Errorf("unknown subscription plan: %s", keyData.SubscriptionPlan)
 	}
 
-	// Check rate limit (time-based)
-	if plan.RateLimit > 0 {
-		isRateLimited, err := s.repo.CheckRateLimit(ctx, keyData.ID, plan.RateLimit)
+	// Check rate limit (hourly and daily limits)
+	if plan.RateLimitPerHour > 0 || plan.RateLimitPerDay > 0 {
+		isRateLimited, err := s.repo.CheckRateLimit(ctx, keyData.ID, plan.RateLimitPerHour, plan.RateLimitPerDay)
 		if err != nil {
 			return false, false, fmt.Errorf("failed to check rate limit: %w", err)
 		}

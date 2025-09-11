@@ -38,7 +38,8 @@ type DashboardRepository interface {
 	GetAPIUsage(ctx context.Context, profileID string, limit int, offset int) ([]models.APIKeyUsage, error)
 	GetMonthlyUsage(ctx context.Context, keyID string) (int64, error)
 	GetDailyUsage(ctx context.Context, keyID string) (int64, error)
-	CheckRateLimit(ctx context.Context, keyID string, rateLimitHours int) (bool, error)
+	GetHourlyUsage(ctx context.Context, keyID string) (int64, error)
+	CheckRateLimit(ctx context.Context, keyID string, rateLimitPerHour, rateLimitPerDay int) (bool, error)
 
 	// Payment management (basic structure for future implementation)
 	CreatePayment(ctx context.Context, payment *models.Payment) error
@@ -376,26 +377,47 @@ func (r *dashboardRepository) GetDailyUsage(ctx context.Context, keyID string) (
 	return count, err
 }
 
-func (r *dashboardRepository) CheckRateLimit(ctx context.Context, keyID string, rateLimitHours int) (bool, error) {
-	if rateLimitHours <= 0 {
-		return false, nil // No rate limit for enterprise or custom plans
+func (r *dashboardRepository) GetHourlyUsage(ctx context.Context, keyID string) (int64, error) {
+	var count int64
+	now := time.Now()
+	startOfHour := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+
+	err := r.db.WithContext(ctx).Model(&timescale.DashboardAPIKeyUsage{}).
+		Where("key_id = ? AND created_at >= ?", keyID, startOfHour).
+		Count(&count).Error
+
+	return count, err
+}
+
+func (r *dashboardRepository) CheckRateLimit(ctx context.Context, keyID string, rateLimitPerHour, rateLimitPerDay int) (bool, error) {
+	// If both limits are 0, no rate limiting (enterprise plan)
+	if rateLimitPerHour <= 0 && rateLimitPerDay <= 0 {
+		return false, nil
 	}
 
-	var lastUsage timescale.DashboardAPIKeyUsage
-	cutoffTime := time.Now().Add(-time.Duration(rateLimitHours) * time.Hour)
-
-	err := r.db.WithContext(ctx).Where("key_id = ? AND created_at >= ?", keyID, cutoffTime).
-		Order("created_at DESC").First(&lastUsage).Error
-
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return false, nil // No recent requests, not rate limited
+	// Check hourly limit if specified
+	if rateLimitPerHour > 0 {
+		hourlyUsage, err := r.GetHourlyUsage(ctx, keyID)
+		if err != nil {
+			return false, fmt.Errorf("failed to check hourly usage: %w", err)
 		}
-		return false, fmt.Errorf("failed to check rate limit: %w", err)
+		if hourlyUsage >= int64(rateLimitPerHour) {
+			return true, nil // Rate limited by hourly limit
+		}
 	}
 
-	// If we found a recent request within the rate limit window, user is rate limited
-	return true, nil
+	// Check daily limit if specified
+	if rateLimitPerDay > 0 {
+		dailyUsage, err := r.GetDailyUsage(ctx, keyID)
+		if err != nil {
+			return false, fmt.Errorf("failed to check daily usage: %w", err)
+		}
+		if dailyUsage >= int64(rateLimitPerDay) {
+			return true, nil // Rate limited by daily limit
+		}
+	}
+
+	return false, nil // Not rate limited
 }
 
 func (r *dashboardRepository) CreatePayment(ctx context.Context, payment *models.Payment) error {

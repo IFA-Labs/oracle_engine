@@ -69,7 +69,8 @@ subscription_plans:
     name: "Free tier"
     price: 0
     api_requests: 1000
-    rate_limit: 2 # hours
+    rate_limit_per_hour: 10   # 10 requests per hour
+    rate_limit_per_day: 100   # 100 requests per day
     data_access: "Two feeds"
     custom_pairs: 0
     request_cost: 0
@@ -81,7 +82,8 @@ subscription_plans:
     name: "Developer tier"
     price: 50
     api_requests: 10000
-    rate_limit: 4 # hours
+    rate_limit_per_hour: 100  # 100 requests per hour
+    rate_limit_per_day: 1000  # 1000 requests per day
     data_access: "All feeds"
     custom_pairs: 0
     request_cost: 0.0005
@@ -93,7 +95,8 @@ subscription_plans:
     name: "Professional tier"
     price: 100
     api_requests: 100000
-    rate_limit: 6 # hours
+    rate_limit_per_hour: 500   # 500 requests per hour
+    rate_limit_per_day: 10000  # 10,000 requests per day
     data_access: "All feeds + Historical data"
     custom_pairs: 3
     request_cost: 0.0002
@@ -105,7 +108,8 @@ subscription_plans:
     name: "Enterprise tier"
     price: 0 # Custom pricing
     api_requests: 0 # Unlimited
-    rate_limit: 0 # Custom
+    rate_limit_per_hour: 0 # Unlimited
+    rate_limit_per_day: 0  # Unlimited
     data_access: "All feeds + Private"
     custom_pairs: -1 # Custom/unlimited
     request_cost: 0 # Custom

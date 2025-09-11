@@ -45,16 +45,17 @@ var DefaultAssetSetting = AssetSetting{
 type ApiKey map[string]string
 
 type SubscriptionPlan struct {
-	Name           string  `mapstructure:"name"`
-	Price          float64 `mapstructure:"price"`           // Monthly price in USD
-	APIRequests    int64   `mapstructure:"api_requests"`    // Monthly API request limit (0 = unlimited)
-	RateLimit      int     `mapstructure:"rate_limit"`      // Rate limit in hours
-	DataAccess     string  `mapstructure:"data_access"`     // Description of data access level
-	CustomPairs    int     `mapstructure:"custom_pairs"`    // Number of custom pairs allowed
-	RequestCost    float64 `mapstructure:"request_cost"`    // Cost per request in USD
-	Support        string  `mapstructure:"support"`         // Support level description
-	HistoricalData bool    `mapstructure:"historical_data"` // Access to historical data
-	PrivateData    bool    `mapstructure:"private_data"`    // Access to private data feeds
+	Name             string  `mapstructure:"name"`
+	Price            float64 `mapstructure:"price"`               // Monthly price in USD
+	APIRequests      int64   `mapstructure:"api_requests"`        // Monthly API request limit (0 = unlimited)
+	RateLimitPerHour int     `mapstructure:"rate_limit_per_hour"` // Requests allowed per hour (0 = unlimited)
+	RateLimitPerDay  int     `mapstructure:"rate_limit_per_day"`  // Requests allowed per day (0 = unlimited)
+	DataAccess       string  `mapstructure:"data_access"`         // Description of data access level
+	CustomPairs      int     `mapstructure:"custom_pairs"`        // Number of custom pairs allowed
+	RequestCost      float64 `mapstructure:"request_cost"`        // Cost per request in USD
+	Support          string  `mapstructure:"support"`             // Support level description
+	HistoricalData   bool    `mapstructure:"historical_data"`     // Access to historical data
+	PrivateData      bool    `mapstructure:"private_data"`        // Access to private data feeds
 }
 
 type Config struct {
@@ -91,52 +92,56 @@ func Load() *Config {
 	})
 	viper.SetDefault("subscription_plans", map[string]SubscriptionPlan{
 		"free": {
-			Name:           "Free tier",
-			Price:          0,
-			APIRequests:    1000,
-			RateLimit:      2, // 2 hours
-			DataAccess:     "Two feeds",
-			CustomPairs:    0,
-			RequestCost:    0,
-			Support:        "Email & Community",
-			HistoricalData: false,
-			PrivateData:    false,
+			Name:             "Free tier",
+			Price:            0,
+			APIRequests:      1000,
+			RateLimitPerHour: 10,  // 10 requests per hour
+			RateLimitPerDay:  100, // 100 requests per day
+			DataAccess:       "Two feeds",
+			CustomPairs:      0,
+			RequestCost:      0,
+			Support:          "Email & Community",
+			HistoricalData:   false,
+			PrivateData:      false,
 		},
 		"developer": {
-			Name:           "Developer tier",
-			Price:          50,
-			APIRequests:    10000,
-			RateLimit:      4, // 4 hours
-			DataAccess:     "All feeds",
-			CustomPairs:    0,
-			RequestCost:    0.0005,
-			Support:        "24/7 support",
-			HistoricalData: false,
-			PrivateData:    false,
+			Name:             "Developer tier",
+			Price:            50,
+			APIRequests:      10000,
+			RateLimitPerHour: 100,  // 100 requests per hour
+			RateLimitPerDay:  1000, // 1000 requests per day
+			DataAccess:       "All feeds",
+			CustomPairs:      0,
+			RequestCost:      0.0005,
+			Support:          "24/7 support",
+			HistoricalData:   false,
+			PrivateData:      false,
 		},
 		"professional": {
-			Name:           "Professional tier",
-			Price:          100,
-			APIRequests:    100000,
-			RateLimit:      6, // 6 hours
-			DataAccess:     "All feeds + Historical data",
-			CustomPairs:    3,
-			RequestCost:    0.0002,
-			Support:        "24/7 support",
-			HistoricalData: true,
-			PrivateData:    false,
+			Name:             "Professional tier",
+			Price:            100,
+			APIRequests:      100000,
+			RateLimitPerHour: 500,   // 500 requests per hour
+			RateLimitPerDay:  10000, // 10,000 requests per day
+			DataAccess:       "All feeds + Historical data",
+			CustomPairs:      3,
+			RequestCost:      0.0002,
+			Support:          "24/7 support",
+			HistoricalData:   true,
+			PrivateData:      false,
 		},
 		"enterprise": {
-			Name:           "Enterprise tier",
-			Price:          0, // Custom pricing
-			APIRequests:    0, // Unlimited
-			RateLimit:      0, // Custom
-			DataAccess:     "All feeds + Private",
-			CustomPairs:    -1, // Custom/unlimited
-			RequestCost:    0,  // Custom
-			Support:        "24/7 support + dedicated engineer",
-			HistoricalData: true,
-			PrivateData:    true,
+			Name:             "Enterprise tier",
+			Price:            0, // Custom pricing
+			APIRequests:      0, // Unlimited
+			RateLimitPerHour: 0, // Unlimited
+			RateLimitPerDay:  0, // Unlimited
+			DataAccess:       "All feeds + Private",
+			CustomPairs:      -1, // Custom/unlimited
+			RequestCost:      0,  // Custom
+			Support:          "24/7 support + dedicated engineer",
+			HistoricalData:   true,
+			PrivateData:      true,
 		},
 	})
 
