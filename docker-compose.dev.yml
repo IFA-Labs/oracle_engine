@@ -1,5 +1,23 @@
 version: '3.8'
 
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-small-logging: &small-logging
+  driver: "json-file"
+  options:
+    max-size: "5m"
+    max-file: "3"
+
+x-large-logging: &large-logging
+  driver: "json-file"
+  options:
+    max-size: "20m"
+    max-file: "3"
+
 services:
   oracle:
     build:
@@ -28,6 +46,7 @@ services:
       - "8000:8000"
     networks:
       - oracle-net
+    logging: *default-logging
 
   redis:
     image: redis:7-alpine
@@ -39,6 +58,7 @@ services:
       - "6379:6379"
     networks:
       - oracle-net
+    logging: *small-logging
 
   timescale:
     image: timescale/timescaledb:latest-pg16
@@ -55,6 +75,7 @@ services:
       - "5430:5432"
     networks:
       - oracle-net
+    logging: *large-logging
 
   nginx:
     image: nginx:latest
@@ -69,6 +90,7 @@ services:
       - oracle
     networks:
       - oracle-net
+    logging: *default-logging
 
 volumes:
   redis-data:
