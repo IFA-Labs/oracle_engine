@@ -34,7 +34,7 @@ func New(cfg *config.Config, priceCh chan models.Issuance, db *timescale.Timesca
 	// Initialize repositories
 	priceRepo := repository.NewPriceRepository(db)
 	issuanceRepo := repository.NewIssuanceRepository(db)
-	dashboardRepo := repository.NewDashboardRepository(gormDB.GetDB())
+	dashboardRepo := repository.NewDashboardRepository(gormDB.GetDB(), "")
 
 	// Initialize services
 	priceService := services.NewPriceService(priceRepo)

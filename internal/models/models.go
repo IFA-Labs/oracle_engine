@@ -215,6 +215,10 @@ type UpdateProfileRequest struct {
 	LogoURL     *string `json:"logo_url,omitempty" binding:"omitempty,url"`
 }
 
+type UpdateSubscriptionRequest struct {
+	SubscriptionPlan string `json:"subscription_plan" binding:"required,oneof=free developer professional enterprise"`
+}
+
 type APIKey struct {
 	ID               string     `json:"id"`
 	Key              string     `json:"key,omitempty"` // Only show on creation

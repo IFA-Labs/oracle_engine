@@ -25,7 +25,6 @@ services:
       dockerfile: Dockerfile
     container_name: oracle
     volumes:
-      - .:/app
       - ./config.yaml:/app/config.yaml
     depends_on:
       - redis
@@ -83,7 +82,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx-local.conf:/etc/nginx/nginx.conf
     depends_on:
       - oracle
     networks:

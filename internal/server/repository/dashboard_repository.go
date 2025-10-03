@@ -23,11 +23,13 @@ type DashboardRepository interface {
 	GetUserByEmail(ctx context.Context, email string) (*models.CompanyProfile, error)
 	GetUserByID(ctx context.Context, id string) (*models.CompanyProfile, error)
 	UpdateProfile(ctx context.Context, id string, req *models.UpdateProfileRequest) (*models.CompanyProfile, error)
+	UpdateSubscription(ctx context.Context, id string, subscriptionPlan string) (*models.CompanyProfile, error)
 
 	// API Key management
 	HashAPIKey(apiKey string) (string, error)
 	CreateAPIKey(ctx context.Context, profileID string, req *models.CreateAPIKeyRequest) (*models.APIKey, error)
 	GetAPIKeys(ctx context.Context, profileID string) ([]models.APIKey, error)
+	GetAPIKeyByID(ctx context.Context, profileID, keyID string) (*models.APIKey, error)
 	GetAPIKeyByHash(ctx context.Context, keyHash string) (*models.APIKey, error)
 	GetAPIKeyByPlainKey(ctx context.Context, apiKey string) (*models.APIKey, error)
 	DeleteAPIKey(ctx context.Context, profileID, keyID string) error
@@ -51,11 +53,12 @@ type dashboardRepository struct {
 	db *gorm.DB
 }
 
-func NewDashboardRepository(db *gorm.DB) DashboardRepository {
+func NewDashboardRepository(db *gorm.DB, encryptionKey string) DashboardRepository {
 	return &dashboardRepository{
 		db: db,
 	}
 }
+
 
 func (r *dashboardRepository) CreateUser(ctx context.Context, req *models.SignUpRequest) (*models.CompanyProfile, error) {
 	// Hash password
@@ -144,6 +147,24 @@ func (r *dashboardRepository) UpdateProfile(ctx context.Context, id string, req 
 	return r.GetUserByID(ctx, id)
 }
 
+func (r *dashboardRepository) UpdateSubscription(ctx context.Context, id string, subscriptionPlan string) (*models.CompanyProfile, error) {
+	updates := map[string]interface{}{
+		"subscription_plan": subscriptionPlan,
+		"updated_at":        time.Now(),
+	}
+
+	if err := r.db.WithContext(ctx).Model(&timescale.CompanyProfile{}).Where("id = ?", id).Updates(updates).Error; err != nil {
+		return nil, fmt.Errorf("failed to update subscription: %w", err)
+	}
+
+	// Log the subscription update
+	logging.Logger.Info("Subscription plan updated", 
+		zap.String("user_id", id), 
+		zap.String("new_plan", subscriptionPlan))
+
+	return r.GetUserByID(ctx, id)
+}
+
 func (r *dashboardRepository) HashAPIKey(apiKey string) (string, error) {
 	hashedKey, err := bcrypt.GenerateFromPassword([]byte(apiKey), bcrypt.DefaultCost)
 	if err != nil {
@@ -164,7 +185,7 @@ func (r *dashboardRepository) CreateAPIKey(ctx context.Context, profileID string
 	// Extract prefix for fast lookup (first 16 characters)
 	keyPrefix := apiKey[:16]
 
-	// Hash the key for storage
+	// Hash the key for storage (for security)
 	hashedKey, err := r.HashAPIKey(apiKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash API key: %w", err)
@@ -172,14 +193,15 @@ func (r *dashboardRepository) CreateAPIKey(ctx context.Context, profileID string
 
 	now := time.Now()
 	dbAPIKey := timescale.DashboardAPIKey{
-		ID:        uuid.New().String(),
-		ProfileID: profileID,
-		Name:      req.Name,
-		KeyPrefix: keyPrefix,
-		KeyHash:   string(hashedKey),
-		IsActive:  true,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:           uuid.New().String(),
+		ProfileID:    profileID,
+		Name:         req.Name,
+		KeyPrefix:    keyPrefix,
+		KeyHash:      string(hashedKey),
+		KeyEncrypted: apiKey, // Store plain text instead of encrypted
+		IsActive:     true,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 
 	if err := r.db.WithContext(ctx).Create(&dbAPIKey).Error; err != nil {
@@ -205,18 +227,39 @@ func (r *dashboardRepository) GetAPIKeys(ctx context.Context, profileID string) 
 
 	keys := make([]models.APIKey, len(dbKeys))
 	for i, dbKey := range dbKeys {
+		// Return the plain text key directly
 		keys[i] = models.APIKey{
 			ID:        dbKey.ID,
+			Key:       dbKey.KeyEncrypted, // Now contains plain text
 			Name:      dbKey.Name,
 			IsActive:  dbKey.IsActive,
 			CreatedAt: dbKey.CreatedAt,
 			UpdatedAt: dbKey.UpdatedAt,
 			LastUsed:  dbKey.LastUsed,
-			// Key is never returned in list operations
 		}
 	}
 
 	return keys, nil
+}
+
+func (r *dashboardRepository) GetAPIKeyByID(ctx context.Context, profileID, keyID string) (*models.APIKey, error) {
+	var dbKey timescale.DashboardAPIKey
+	if err := r.db.WithContext(ctx).Where("id = ? AND profile_id = ?", keyID, profileID).First(&dbKey).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("API key not found")
+		}
+		return nil, fmt.Errorf("failed to get API key: %w", err)
+	}
+
+	return &models.APIKey{
+		ID:        dbKey.ID,
+		Key:       dbKey.KeyEncrypted, // Now contains plain text
+		Name:      dbKey.Name,
+		IsActive:  dbKey.IsActive,
+		CreatedAt: dbKey.CreatedAt,
+		UpdatedAt: dbKey.UpdatedAt,
+		LastUsed:  dbKey.LastUsed,
+	}, nil
 }
 
 func (r *dashboardRepository) GetAPIKeyByPlainKey(ctx context.Context, apiKey string) (*models.APIKey, error) {

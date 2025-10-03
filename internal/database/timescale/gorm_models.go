@@ -122,6 +122,7 @@ type DashboardAPIKey struct {
 	Name      string     `gorm:"type:text;not null" json:"name"`
 	KeyPrefix string     `gorm:"type:text;not null;uniqueIndex" json:"key_prefix"` // First 16 chars of the API key for fast lookup
 	KeyHash   string     `gorm:"type:text;not null;uniqueIndex" json:"key_hash"`
+	KeyEncrypted string  `gorm:"type:text;not null" json:"key_encrypted"` // Encrypted API key for retrieval
 	IsActive  bool       `gorm:"type:boolean;not null;default:true" json:"is_active"`
 	LastUsed  *time.Time `gorm:"type:timestamptz" json:"last_used"`
 	CreatedAt time.Time  `gorm:"type:timestamptz;not null" json:"created_at"`

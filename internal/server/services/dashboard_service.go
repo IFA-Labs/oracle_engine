@@ -32,10 +32,12 @@ type DashboardService interface {
 	// Profile management
 	GetProfile(ctx context.Context, id string) (*models.CompanyProfile, error)
 	UpdateProfile(ctx context.Context, id string, req *models.UpdateProfileRequest) (*models.CompanyProfile, error)
+	UpdateSubscription(ctx context.Context, id string, req *models.UpdateSubscriptionRequest) (*models.CompanyProfile, error)
 
 	// API Key management
 	CreateAPIKey(ctx context.Context, profileID string, req *models.CreateAPIKeyRequest) (*models.CreateAPIKeyResponse, error)
 	GetAPIKeys(ctx context.Context, profileID string) ([]models.APIKey, error)
+	GetAPIKeyByID(ctx context.Context, profileID, keyID string) (*models.APIKey, error)
 	DeleteAPIKey(ctx context.Context, profileID, keyID string) error
 	ValidateAPIKey(ctx context.Context, apiKey string) (*models.APIKey, error)
 	CheckAPILimits(ctx context.Context, keyData *models.APIKey) (rateLimited, usageLimitExceeded bool, err error)
@@ -101,6 +103,13 @@ func (s *dashboardService) UpdateProfile(ctx context.Context, id string, req *mo
 	return s.repo.UpdateProfile(ctx, id, req)
 }
 
+func (s *dashboardService) UpdateSubscription(ctx context.Context, id string, req *models.UpdateSubscriptionRequest) (*models.CompanyProfile, error) {
+	// Create a profile update request with just the subscription plan
+	// Update subscription plan by calling the repository
+	// We'll need to add this method to the repository interface
+	return s.repo.UpdateSubscription(ctx, id, req.SubscriptionPlan)
+}
+
 func (s *dashboardService) CreateAPIKey(ctx context.Context, profileID string, req *models.CreateAPIKeyRequest) (*models.CreateAPIKeyResponse, error) {
 	apiKey, err := s.repo.CreateAPIKey(ctx, profileID, req)
 	if err != nil {
@@ -117,6 +126,10 @@ func (s *dashboardService) CreateAPIKey(ctx context.Context, profileID string, r
 
 func (s *dashboardService) GetAPIKeys(ctx context.Context, profileID string) ([]models.APIKey, error) {
 	return s.repo.GetAPIKeys(ctx, profileID)
+}
+
+func (s *dashboardService) GetAPIKeyByID(ctx context.Context, profileID, keyID string) (*models.APIKey, error) {
+	return s.repo.GetAPIKeyByID(ctx, profileID, keyID)
 }
 
 func (s *dashboardService) DeleteAPIKey(ctx context.Context, profileID, keyID string) error {
