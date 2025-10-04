@@ -13,7 +13,6 @@ import (
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -26,7 +25,6 @@ type DashboardRepository interface {
 	UpdateSubscription(ctx context.Context, id string, subscriptionPlan string) (*models.CompanyProfile, error)
 
 	// API Key management
-	HashAPIKey(apiKey string) (string, error)
 	CreateAPIKey(ctx context.Context, profileID string, req *models.CreateAPIKeyRequest) (*models.APIKey, error)
 	GetAPIKeys(ctx context.Context, profileID string) ([]models.APIKey, error)
 	GetAPIKeyByID(ctx context.Context, profileID, keyID string) (*models.APIKey, error)
@@ -53,7 +51,7 @@ type dashboardRepository struct {
 	db *gorm.DB
 }
 
-func NewDashboardRepository(db *gorm.DB, encryptionKey string) DashboardRepository {
+func NewDashboardRepository(db *gorm.DB) DashboardRepository {
 	return &dashboardRepository{
 		db: db,
 	}
@@ -165,13 +163,6 @@ func (r *dashboardRepository) UpdateSubscription(ctx context.Context, id string,
 	return r.GetUserByID(ctx, id)
 }
 
-func (r *dashboardRepository) HashAPIKey(apiKey string) (string, error) {
-	hashedKey, err := bcrypt.GenerateFromPassword([]byte(apiKey), bcrypt.DefaultCost)
-	if err != nil {
-		return "", fmt.Errorf("failed to hash API key: %w", err)
-	}
-	return string(hashedKey), nil
-}
 
 func (r *dashboardRepository) CreateAPIKey(ctx context.Context, profileID string, req *models.CreateAPIKeyRequest) (*models.APIKey, error) {
 	// Generate API key
@@ -185,23 +176,17 @@ func (r *dashboardRepository) CreateAPIKey(ctx context.Context, profileID string
 	// Extract prefix for fast lookup (first 16 characters)
 	keyPrefix := apiKey[:16]
 
-	// Hash the key for storage (for security)
-	hashedKey, err := r.HashAPIKey(apiKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to hash API key: %w", err)
-	}
-
 	now := time.Now()
 	dbAPIKey := timescale.DashboardAPIKey{
-		ID:           uuid.New().String(),
-		ProfileID:    profileID,
-		Name:         req.Name,
-		KeyPrefix:    keyPrefix,
-		KeyHash:      string(hashedKey),
-		KeyEncrypted: apiKey, // Store plain text instead of encrypted
-		IsActive:     true,
-		CreatedAt:    now,
-		UpdatedAt:    now,
+		ID:        uuid.New().String(),
+		ProfileID: profileID,
+		Name:      req.Name,
+		KeyPrefix: keyPrefix,
+		KeyHash:   apiKey, // Store plain text as hash for compatibility
+		KeyPlain:  apiKey, // Store plain text API key
+		IsActive:  true,
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 
 	if err := r.db.WithContext(ctx).Create(&dbAPIKey).Error; err != nil {
@@ -227,10 +212,9 @@ func (r *dashboardRepository) GetAPIKeys(ctx context.Context, profileID string) 
 
 	keys := make([]models.APIKey, len(dbKeys))
 	for i, dbKey := range dbKeys {
-		// Return the plain text key directly
 		keys[i] = models.APIKey{
 			ID:        dbKey.ID,
-			Key:       dbKey.KeyEncrypted, // Now contains plain text
+			Key:       dbKey.KeyPlain, // Return plain text API key
 			Name:      dbKey.Name,
 			IsActive:  dbKey.IsActive,
 			CreatedAt: dbKey.CreatedAt,
@@ -253,7 +237,7 @@ func (r *dashboardRepository) GetAPIKeyByID(ctx context.Context, profileID, keyI
 
 	return &models.APIKey{
 		ID:        dbKey.ID,
-		Key:       dbKey.KeyEncrypted, // Now contains plain text
+		Key:       dbKey.KeyPlain, // Return plain text API key
 		Name:      dbKey.Name,
 		IsActive:  dbKey.IsActive,
 		CreatedAt: dbKey.CreatedAt,
@@ -282,9 +266,9 @@ func (r *dashboardRepository) GetAPIKeyByPlainKey(ctx context.Context, apiKey st
 		return nil, fmt.Errorf("API key not found")
 	}
 
-	// Compare the provided key with each stored hash from the matching prefix
+	// Compare the provided key with each stored plain text key from the matching prefix
 	for _, dbKey := range dbKeys {
-		if err := bcrypt.CompareHashAndPassword([]byte(dbKey.KeyHash), []byte(apiKey)); err == nil {
+		if dbKey.KeyPlain == apiKey {
 			// Found matching key
 			return &models.APIKey{
 				ID:        dbKey.ID,
@@ -294,7 +278,7 @@ func (r *dashboardRepository) GetAPIKeyByPlainKey(ctx context.Context, apiKey st
 				CreatedAt: dbKey.CreatedAt,
 				UpdatedAt: dbKey.UpdatedAt,
 				LastUsed:  dbKey.LastUsed,
-				KeyHash:   dbKey.KeyHash,
+				Key:       dbKey.KeyPlain,
 			}, nil
 		}
 	}
@@ -318,7 +302,7 @@ func (r *dashboardRepository) GetAPIKeyByHash(ctx context.Context, keyHash strin
 		CreatedAt: dbKey.CreatedAt,
 		UpdatedAt: dbKey.UpdatedAt,
 		LastUsed:  dbKey.LastUsed,
-		KeyHash:   dbKey.KeyHash,
+		Key:       dbKey.KeyPlain, // Return plain text API key
 	}, nil
 }
 

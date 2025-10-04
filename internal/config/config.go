@@ -71,7 +71,6 @@ type Config struct {
 	DB_URL               string                      `mapstructure:"DB_URL"`
 	SERVER_PORT          string                      `mapstructure:"server_port"`
 	JWTSecret            string                      `mapstructure:"jwt_secret"`
-	APIKeyEncryptionKey  string                      `mapstructure:"api_key_encryption_key"`
 	SubscriptionPlans    map[string]SubscriptionPlan `mapstructure:"subscription_plans"`
 }
 
@@ -172,9 +171,6 @@ func Load() *Config {
 		}
 	}
 
-	if cfg.APIKeyEncryptionKey == "" {
-		cfg.APIKeyEncryptionKey = os.Getenv("API_KEY_ENCRYPTION_KEY")
-	}
 
 	return &cfg
 }

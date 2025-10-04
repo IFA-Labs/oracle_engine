@@ -45,6 +45,11 @@ func (t *TimescaleGORM) Initialize(ctx context.Context) error {
 		return err
 	}
 
+	// Handle migration for removing key_encrypted column
+	if err := t.handleKeyEncryptedMigration(); err != nil {
+		logging.Logger.Warn("Failed to handle key_encrypted migration", zap.Error(err))
+	}
+
 	// Auto-migrate tables
 	if err := t.db.AutoMigrate(&Price{}, &RawPrice{}, &PriceRawPriceLink{}, &Issuance{},
 		&CompanyProfile{}, &DashboardAPIKey{}, &DashboardAPIKeyUsage{}, &DashboardPayment{}); err != nil {
@@ -419,4 +424,63 @@ func (t *TimescaleGORM) Close() error {
 // GetDB returns the GORM database instance for dashboard operations
 func (t *TimescaleGORM) GetDB() *gorm.DB {
 	return t.db
+}
+
+// handleKeyEncryptedMigration removes the key_encrypted column if it exists and ensures key_plain exists
+func (t *TimescaleGORM) handleKeyEncryptedMigration() error {
+	// Check if the key_encrypted column exists
+	var encryptedColumnExists bool
+	err := t.db.Raw(`
+		SELECT EXISTS (
+			SELECT 1 
+			FROM information_schema.columns 
+			WHERE table_name = 'dashboard_api_keys' 
+			AND column_name = 'key_encrypted'
+		)
+	`).Scan(&encryptedColumnExists).Error
+	
+	if err != nil {
+		return fmt.Errorf("failed to check for key_encrypted column: %w", err)
+	}
+	
+	// If the key_encrypted column exists, drop it
+	if encryptedColumnExists {
+		logging.Logger.Info("Dropping key_encrypted column from dashboard_api_keys table")
+		if err := t.db.Exec("ALTER TABLE dashboard_api_keys DROP COLUMN IF EXISTS key_encrypted").Error; err != nil {
+			return fmt.Errorf("failed to drop key_encrypted column: %w", err)
+		}
+		logging.Logger.Info("Successfully dropped key_encrypted column")
+	}
+	
+	// Check if the key_plain column exists
+	var plainColumnExists bool
+	err = t.db.Raw(`
+		SELECT EXISTS (
+			SELECT 1 
+			FROM information_schema.columns 
+			WHERE table_name = 'dashboard_api_keys' 
+			AND column_name = 'key_plain'
+		)
+	`).Scan(&plainColumnExists).Error
+	
+	if err != nil {
+		return fmt.Errorf("failed to check for key_plain column: %w", err)
+	}
+	
+	// If the key_plain column doesn't exist, add it
+	if !plainColumnExists {
+		logging.Logger.Info("Adding key_plain column to dashboard_api_keys table")
+		if err := t.db.Exec("ALTER TABLE dashboard_api_keys ADD COLUMN key_plain text NOT NULL DEFAULT ''").Error; err != nil {
+			return fmt.Errorf("failed to add key_plain column: %w", err)
+		}
+		logging.Logger.Info("Successfully added key_plain column")
+		
+		// Copy existing key_hash values to key_plain for existing records
+		logging.Logger.Info("Copying existing key_hash values to key_plain")
+		if err := t.db.Exec("UPDATE dashboard_api_keys SET key_plain = key_hash WHERE key_plain = ''").Error; err != nil {
+			logging.Logger.Warn("Failed to copy key_hash to key_plain", zap.Error(err))
+		}
+	}
+	
+	return nil
 }
