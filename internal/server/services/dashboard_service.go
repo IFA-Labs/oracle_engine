@@ -75,7 +75,7 @@ func (s *dashboardService) Login(ctx context.Context, req *models.LoginRequest) 
 		return nil, fmt.Errorf("invalid credentials")
 	}
 
-	// Verify password
+	// Verify password (bcrypt comparison)
 	if err := bcrypt.CompareHashAndPassword([]byte(profile.Password), []byte(req.Password)); err != nil {
 		return nil, fmt.Errorf("invalid credentials")
 	}

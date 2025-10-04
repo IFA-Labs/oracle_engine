@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -59,7 +60,7 @@ func NewDashboardRepository(db *gorm.DB) DashboardRepository {
 
 
 func (r *dashboardRepository) CreateUser(ctx context.Context, req *models.SignUpRequest) (*models.CompanyProfile, error) {
-	// Hash password
+	// Hash password for security
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash password: %w", err)
@@ -74,7 +75,7 @@ func (r *dashboardRepository) CreateUser(ctx context.Context, req *models.SignUp
 		FirstName:        req.FirstName,
 		LastName:         req.LastName,
 		Email:            req.Email,
-		Password:         string(hashedPassword),
+		Password:         string(hashedPassword), // Store hashed password
 		SubscriptionPlan: "free", // Default to free tier
 		CreatedAt:        now,
 		UpdatedAt:        now,
