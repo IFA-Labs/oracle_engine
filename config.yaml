@@ -116,3 +116,9 @@ subscription_plans:
     support: "24/7 support + dedicated engineer"
     historical_data: true
     private_data: true
+database:
+  host: timescale-dev
+  port: 5432
+  user: user
+  password: pass
+  dbname: oracle
