@@ -107,12 +107,30 @@ func (a *API) RegisterRoutes(router *gin.Engine) {
 	router.POST("/api/dashboard/signup", a.handleSignUp)
 	router.POST("/api/dashboard/login", a.handleLogin)
 
+	// Email verification registration endpoints (no authentication required)
+	router.POST("/api/auth/register/initiate", a.handleInitiateRegistration)
+	router.GET("/api/auth/register/verify", a.handleVerifyToken)
+	router.POST("/api/auth/register/complete", a.handleCompleteRegistration)
+
+	// Password reset endpoints (no authentication required)
+	router.POST("/api/auth/password/forgot", a.handleForgotPassword)
+	router.GET("/api/auth/password/verify", a.handleVerifyResetToken)
+	router.POST("/api/auth/password/reset", a.handleResetPassword)
+
+	// Payment and subscription endpoints (no authentication required for webhooks)
+	router.POST("/api/subscriptions/activate", a.handleActivateSubscription)
+	router.POST("/api/payments/store", a.handleStorePayment)
+	router.PUT("/api/payments/:id/status", a.handleUpdatePaymentStatus)
+
 	// Protected dashboard endpoints (require JWT authentication)
 	protected := router.Group("/api/dashboard")
 	protected.Use(a.authMiddleware.JWTAuth(), a.authMiddleware.ValidateProfileOwnership())
 	{
 		protected.GET("/:id/profile", a.handleGetProfile)
 		protected.PUT("/:id/profile", a.handleUpdateProfile)
+		protected.POST("/:id/change-password", a.handleChangePassword)
+		protected.DELETE("/:id/profile", a.handleDeleteProfile)
+		protected.DELETE("/:id", a.handleDeleteProfile) // Also support DELETE /dashboard/:id
 		protected.PUT("/:id/subscription", a.handleUpdateSubscription) // Dedicated subscription update endpoint
 		protected.POST("/:id/api-keys", a.handleCreateAPIKey)
 		protected.GET("/:id/api-keys", a.handleGetAPIKeys)
@@ -194,6 +212,261 @@ func (a *API) handleLogin(c *gin.Context) {
 	c.JSON(200, response)
 }
 
+// @Summary Initiate Email Verification Registration
+// @Description Send verification email to start the registration process
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body models.InitiateRegistrationRequest true "Initiate registration request"
+// @Success 200 {object} models.InitiateRegistrationResponse
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /auth/register/initiate [post]
+func (a *API) handleInitiateRegistration(c *gin.Context) {
+	var req models.InitiateRegistrationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	response, err := a.dashboardService.InitiateRegistration(c.Request.Context(), &req)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, response)
+}
+
+// @Summary Verify Email Token
+// @Description Verify if an email verification token is valid
+// @Tags auth
+// @Produce json
+// @Param token query string true "Verification token"
+// @Success 200 {object} models.VerifyTokenResponse
+// @Failure 400 {object} map[string]string
+// @Router /auth/register/verify [get]
+func (a *API) handleVerifyToken(c *gin.Context) {
+	token := c.Query("token")
+	if token == "" {
+		c.JSON(400, gin.H{"error": "Token is required"})
+		return
+	}
+
+	response, err := a.dashboardService.VerifyToken(c.Request.Context(), token)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, response)
+}
+
+// @Summary Complete Registration
+// @Description Complete user registration after email verification
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body models.CompleteRegistrationRequest true "Complete registration request"
+// @Success 200 {object} models.CompleteRegistrationResponse
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /auth/register/complete [post]
+func (a *API) handleCompleteRegistration(c *gin.Context) {
+	var req models.CompleteRegistrationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	response, err := a.dashboardService.CompleteRegistration(c.Request.Context(), &req)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, response)
+}
+
+// @Summary Initiate Password Reset
+// @Description Send password reset email to user
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body models.ForgotPasswordRequest true "Forgot Password Request"
+// @Success 200 {object} models.ForgotPasswordResponse
+// @Failure 400 {object} map[string]string
+// @Router /api/auth/password/forgot [post]
+func (a *API) handleForgotPassword(c *gin.Context) {
+	var req models.ForgotPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	response, err := a.dashboardService.InitiatePasswordReset(c.Request.Context(), &req)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, response)
+}
+
+// @Summary Verify Password Reset Token
+// @Description Check if password reset token is valid
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param token query string true "Reset Token"
+// @Success 200 {object} models.VerifyResetTokenResponse
+// @Router /api/auth/password/verify [get]
+func (a *API) handleVerifyResetToken(c *gin.Context) {
+	token := c.Query("token")
+	if token == "" {
+		c.JSON(400, gin.H{"error": "Token is required"})
+		return
+	}
+
+	response, err := a.dashboardService.VerifyResetToken(c.Request.Context(), token)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, response)
+}
+
+// @Summary Reset Password
+// @Description Reset user password with valid token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body models.ResetPasswordRequest true "Reset Password Request"
+// @Success 200 {object} models.ResetPasswordResponse
+// @Failure 400 {object} map[string]string
+// @Router /api/auth/password/reset [post]
+func (a *API) handleResetPassword(c *gin.Context) {
+	var req models.ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	response, err := a.dashboardService.ResetPassword(c.Request.Context(), &req)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, response)
+}
+
+// @Summary Change Password
+// @Description Change user password (requires current password)
+// @Tags dashboard
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Param request body models.ChangePasswordRequest true "Change Password Request"
+// @Success 200 {object} models.ChangePasswordResponse
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Router /api/dashboard/{id}/change-password [post]
+func (a *API) handleChangePassword(c *gin.Context) {
+	id := c.Param("id")
+	
+	var req models.ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	response, err := a.dashboardService.ChangePassword(c.Request.Context(), id, &req)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, response)
+}
+
+// @Summary Activate Subscription
+// @Description Activate user subscription after payment confirmation
+// @Tags subscriptions
+// @Accept json
+// @Produce json
+// @Param request body models.ActivateSubscriptionRequest true "Activation Request"
+// @Success 200 {object} models.ActivateSubscriptionResponse
+// @Failure 400 {object} map[string]string
+// @Router /api/subscriptions/activate [post]
+func (a *API) handleActivateSubscription(c *gin.Context) {
+	var req models.ActivateSubscriptionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	response, err := a.dashboardService.ActivateSubscription(c.Request.Context(), &req)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, response)
+}
+
+// @Summary Store Payment
+// @Description Store NOWPayments transaction
+// @Tags payments
+// @Accept json
+// @Produce json
+// @Param request body models.StorePaymentRequest true "Payment Data"
+// @Success 200 {object} models.PaymentStorageResponse
+// @Failure 400 {object} map[string]string
+// @Router /api/payments/store [post]
+func (a *API) handleStorePayment(c *gin.Context) {
+	var req models.StorePaymentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	response, err := a.dashboardService.StoreNOWPayment(c.Request.Context(), &req)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, response)
+}
+
+// @Summary Update Payment Status
+// @Description Update payment status
+// @Tags payments
+// @Accept json
+// @Produce json
+// @Param id path string true "Payment ID"
+// @Param request body models.UpdatePaymentStatusRequest true "Status Update"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Router /api/payments/{id}/status [put]
+func (a *API) handleUpdatePaymentStatus(c *gin.Context) {
+	var req models.UpdatePaymentStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	if err := a.dashboardService.UpdatePaymentStatus(c.Request.Context(), &req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Payment status updated successfully"})
+}
+
 // @Summary Get User Profile
 // @Description Get company profile information
 // @Tags dashboard
@@ -256,6 +529,36 @@ func (a *API) handleUpdateProfile(c *gin.Context) {
 	}
 
 	c.JSON(200, profile)
+}
+
+// @Summary Delete User Account
+// @Description Permanently delete a user account and all associated data
+// @Tags dashboard
+// @Security BearerAuth
+// @Param id path string true "Profile ID"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /dashboard/{id}/profile [delete]
+// @Router /dashboard/{id} [delete]
+func (a *API) handleDeleteProfile(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(400, gin.H{"error": "Profile ID required"})
+		return
+	}
+
+	if err := a.dashboardService.DeleteProfile(c.Request.Context(), id); err != nil {
+		c.JSON(500, gin.H{"error": "Failed to delete account: " + err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"message": "Account deleted successfully",
+		"id":      id,
+	})
 }
 
 // @Summary Update Subscription Plan

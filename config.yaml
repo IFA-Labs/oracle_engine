@@ -68,9 +68,10 @@ subscription_plans:
   free:
     name: "Free tier"
     price: 0
+    subscription_duration: 0    # Lifetime (no expiration)
     api_requests: 1000
-    rate_limit_per_hour: 10   # 10 requests per hour
-    rate_limit_per_day: 100   # 100 requests per day
+    rate_limit_per_hour: 10     # 10 requests per hour
+    rate_limit_per_day: 100     # 100 requests per day
     data_access: "Two feeds"
     custom_pairs: 0
     request_cost: 0
@@ -78,12 +79,27 @@ subscription_plans:
     historical_data: false
     private_data: false
   
-  developer:
+  developer_monthly:
     name: "Developer tier"
-    price: 50
+    price: 50                   # Monthly price
+    subscription_duration: 30   # 30 days (monthly)
     api_requests: 10000
-    rate_limit_per_hour: 100  # 100 requests per hour
-    rate_limit_per_day: 1000  # 1000 requests per day
+    rate_limit_per_hour: 100    # 100 requests per hour
+    rate_limit_per_day: 1000    # 1000 requests per day
+    data_access: "All feeds"
+    custom_pairs: 0
+    request_cost: 0.0005
+    support: "24/7 support"
+    historical_data: false
+    private_data: false
+  
+  developer_annual:
+    name: "Developer tier"
+    price: 500                  # Annual price ($500/year = ~$42/month)
+    subscription_duration: 365  # 365 days (yearly)
+    api_requests: 10000
+    rate_limit_per_hour: 100    # 100 requests per hour
+    rate_limit_per_day: 1000    # 1000 requests per day
     data_access: "All feeds"
     custom_pairs: 0
     request_cost: 0.0005
@@ -91,12 +107,27 @@ subscription_plans:
     historical_data: false
     private_data: false
     
-  professional:
+  professional_monthly:
     name: "Professional tier"
-    price: 100
+    price: 100                  # Monthly price
+    subscription_duration: 30   # 30 days (monthly)
     api_requests: 100000
-    rate_limit_per_hour: 500   # 500 requests per hour
-    rate_limit_per_day: 10000  # 10,000 requests per day
+    rate_limit_per_hour: 500    # 500 requests per hour
+    rate_limit_per_day: 10000   # 10,000 requests per day
+    data_access: "All feeds + Historical data"
+    custom_pairs: 3
+    request_cost: 0.0002
+    support: "24/7 support"
+    historical_data: true
+    private_data: false
+  
+  professional_annual:
+    name: "Professional tier"
+    price: 1000                 # Annual price ($1000/year = ~$83/month)
+    subscription_duration: 365  # 365 days (yearly)
+    api_requests: 100000
+    rate_limit_per_hour: 500    # 500 requests per hour
+    rate_limit_per_day: 10000   # 10,000 requests per day
     data_access: "All feeds + Historical data"
     custom_pairs: 3
     request_cost: 0.0002
@@ -106,13 +137,14 @@ subscription_plans:
     
   enterprise:
     name: "Enterprise tier"
-    price: 0 # Custom pricing
-    api_requests: 0 # Unlimited
-    rate_limit_per_hour: 0 # Unlimited
-    rate_limit_per_day: 0  # Unlimited
+    price: 0                    # Custom pricing
+    subscription_duration: 365  # 365 days (yearly)
+    api_requests: 0             # Unlimited
+    rate_limit_per_hour: 0      # Unlimited
+    rate_limit_per_day: 0       # Unlimited
     data_access: "All feeds + Private"
-    custom_pairs: -1 # Custom/unlimited
-    request_cost: 0 # Custom
+    custom_pairs: -1            # Custom/unlimited
+    request_cost: 0             # Custom
     support: "24/7 support + dedicated engineer"
     historical_data: true
     private_data: true

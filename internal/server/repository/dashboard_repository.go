@@ -20,10 +20,32 @@ import (
 type DashboardRepository interface {
 	// User management
 	CreateUser(ctx context.Context, req *models.SignUpRequest) (*models.CompanyProfile, error)
+	CreateUserWithHashedPassword(ctx context.Context, req *models.SignUpRequest) (*models.CompanyProfile, error)
 	GetUserByEmail(ctx context.Context, email string) (*models.CompanyProfile, error)
 	GetUserByID(ctx context.Context, id string) (*models.CompanyProfile, error)
 	UpdateProfile(ctx context.Context, id string, req *models.UpdateProfileRequest) (*models.CompanyProfile, error)
 	UpdateSubscription(ctx context.Context, id string, subscriptionPlan string) (*models.CompanyProfile, error)
+	DeleteUser(ctx context.Context, id string) error
+
+	// Email verification
+	CreateVerificationToken(ctx context.Context, token, email string, expiresAt time.Time) error
+	GetVerificationToken(ctx context.Context, token string) (*timescale.VerificationToken, error)
+	MarkTokenAsUsed(ctx context.Context, token string) error
+	
+	// Password reset
+	CreatePasswordResetToken(ctx context.Context, token, email string, expiresAt time.Time) error
+	UpdateUserPassword(ctx context.Context, email, hashedPassword string) error
+	
+	// Password change (with current password verification)
+	ChangeUserPassword(ctx context.Context, userID, currentPasswordHash, newPasswordHash string) error
+	
+	// Subscription activation
+	UpdateUserSubscription(ctx context.Context, userID, planID, billingCycle string, expiresAt *time.Time) error
+	
+	// Payment storage
+	StoreNOWPayment(ctx context.Context, payment *models.Payment) error
+	UpdatePaymentStatus(ctx context.Context, paymentID, status string) error
+	GetPaymentByID(ctx context.Context, paymentID string) (*models.Payment, error)
 
 	// API Key management
 	CreateAPIKey(ctx context.Context, profileID string, req *models.CreateAPIKeyRequest) (*models.APIKey, error)
@@ -45,7 +67,6 @@ type DashboardRepository interface {
 	// Payment management (basic structure for future implementation)
 	CreatePayment(ctx context.Context, payment *models.Payment) error
 	GetPaymentHistory(ctx context.Context, profileID string, limit int, offset int) ([]models.Payment, int64, error)
-	UpdatePaymentStatus(ctx context.Context, paymentID, status string) error
 }
 
 type dashboardRepository struct {
@@ -162,6 +183,245 @@ func (r *dashboardRepository) UpdateSubscription(ctx context.Context, id string,
 		zap.String("new_plan", subscriptionPlan))
 
 	return r.GetUserByID(ctx, id)
+}
+
+func (r *dashboardRepository) DeleteUser(ctx context.Context, id string) error {
+	// Start a transaction to delete user and all related data
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Delete all API keys for this user
+		if err := tx.Where("profile_id = ?", id).Delete(&timescale.DashboardAPIKey{}).Error; err != nil {
+			logging.Logger.Error("Failed to delete API keys", zap.String("user_id", id), zap.Error(err))
+			return fmt.Errorf("failed to delete API keys: %w", err)
+		}
+
+		// Delete all API usage records
+		if err := tx.Where("profile_id = ?", id).Delete(&timescale.DashboardAPIKeyUsage{}).Error; err != nil {
+			logging.Logger.Error("Failed to delete API usage records", zap.String("user_id", id), zap.Error(err))
+			return fmt.Errorf("failed to delete API usage records: %w", err)
+		}
+
+		// Delete all payments
+		if err := tx.Where("profile_id = ?", id).Delete(&timescale.DashboardPayment{}).Error; err != nil {
+			logging.Logger.Error("Failed to delete payments", zap.String("user_id", id), zap.Error(err))
+			return fmt.Errorf("failed to delete payments: %w", err)
+		}
+
+		// Finally, delete the user profile
+		if err := tx.Where("id = ?", id).Delete(&timescale.CompanyProfile{}).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return fmt.Errorf("user not found")
+			}
+			logging.Logger.Error("Failed to delete user profile", zap.String("user_id", id), zap.Error(err))
+			return fmt.Errorf("failed to delete user: %w", err)
+		}
+
+		logging.Logger.Info("User account deleted successfully", zap.String("user_id", id))
+		return nil
+	})
+}
+
+// CreateUserWithHashedPassword creates a user with an already hashed password (used for email verification flow)
+func (r *dashboardRepository) CreateUserWithHashedPassword(ctx context.Context, req *models.SignUpRequest) (*models.CompanyProfile, error) {
+	now := time.Now()
+	profile := timescale.CompanyProfile{
+		ID:               uuid.New().String(),
+		Name:             req.Name,
+		Description:      req.Description,
+		Website:          req.Website,
+		FirstName:        req.FirstName,
+		LastName:         req.LastName,
+		Email:            req.Email,
+		Password:         req.Password, // Already hashed
+		EmailVerified:    true,         // Email is verified through the token flow
+		SubscriptionPlan: "free",        // Default to free tier
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	}
+
+	if err := r.db.WithContext(ctx).Create(&profile).Error; err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return nil, fmt.Errorf("email already exists")
+		}
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	return r.gormToModel(profile), nil
+}
+
+// CreateVerificationToken creates a new email verification token
+func (r *dashboardRepository) CreateVerificationToken(ctx context.Context, token, email string, expiresAt time.Time) error {
+	verificationToken := timescale.VerificationToken{
+		Token:     token,
+		Email:     email,
+		Type:      "email_verification",
+		Used:      false,
+		ExpiresAt: expiresAt,
+		CreatedAt: time.Now(),
+	}
+
+	if err := r.db.WithContext(ctx).Create(&verificationToken).Error; err != nil {
+		return fmt.Errorf("failed to create verification token: %w", err)
+	}
+
+	return nil
+}
+
+// GetVerificationToken retrieves a verification token
+func (r *dashboardRepository) GetVerificationToken(ctx context.Context, token string) (*timescale.VerificationToken, error) {
+	var verificationToken timescale.VerificationToken
+	if err := r.db.WithContext(ctx).Where("token = ?", token).First(&verificationToken).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("token not found")
+		}
+		return nil, fmt.Errorf("failed to get verification token: %w", err)
+	}
+
+	return &verificationToken, nil
+}
+
+// MarkTokenAsUsed marks a verification token as used
+func (r *dashboardRepository) MarkTokenAsUsed(ctx context.Context, token string) error {
+	if err := r.db.WithContext(ctx).Model(&timescale.VerificationToken{}).
+		Where("token = ?", token).
+		Update("used", true).Error; err != nil {
+		return fmt.Errorf("failed to mark token as used: %w", err)
+	}
+
+	return nil
+}
+
+// CreatePasswordResetToken creates a new password reset token
+func (r *dashboardRepository) CreatePasswordResetToken(ctx context.Context, token, email string, expiresAt time.Time) error {
+	resetToken := timescale.VerificationToken{
+		Token:     token,
+		Email:     email,
+		Type:      "password_reset",
+		Used:      false,
+		ExpiresAt: expiresAt,
+		CreatedAt: time.Now(),
+	}
+
+	if err := r.db.WithContext(ctx).Create(&resetToken).Error; err != nil {
+		return fmt.Errorf("failed to create password reset token: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateUserPassword updates a user's password by email
+func (r *dashboardRepository) UpdateUserPassword(ctx context.Context, email, hashedPassword string) error {
+	if err := r.db.WithContext(ctx).Model(&timescale.CompanyProfile{}).
+		Where("email = ?", email).
+		Update("password", hashedPassword).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("user not found")
+		}
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	return nil
+}
+
+// ChangeUserPassword updates a user's password by ID (used for authenticated password change)
+func (r *dashboardRepository) ChangeUserPassword(ctx context.Context, userID, currentPasswordHash, newPasswordHash string) error {
+	// First verify the current password
+	var profile timescale.CompanyProfile
+	if err := r.db.WithContext(ctx).Where("id = ?", userID).First(&profile).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("user not found")
+		}
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// The current password verification happens in the service layer
+	// Here we just update the password
+	if err := r.db.WithContext(ctx).Model(&timescale.CompanyProfile{}).
+		Where("id = ?", userID).
+		Update("password", newPasswordHash).Error; err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateUserSubscription updates user's subscription plan, billing cycle, and expiry
+func (r *dashboardRepository) UpdateUserSubscription(ctx context.Context, userID, planID, billingCycle string, expiresAt *time.Time) error {
+	updates := map[string]interface{}{
+		"subscription_plan":      planID,
+		"billing_cycle":          billingCycle,
+		"subscription_expires_at": expiresAt,
+		"updated_at":             time.Now(),
+	}
+
+	if err := r.db.WithContext(ctx).Model(&timescale.CompanyProfile{}).
+		Where("id = ?", userID).
+		Updates(updates).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("user not found")
+		}
+		return fmt.Errorf("failed to update subscription: %w", err)
+	}
+
+	return nil
+}
+
+// StoreNOWPayment stores a NOWPayments transaction
+func (r *dashboardRepository) StoreNOWPayment(ctx context.Context, payment *models.Payment) error {
+	dbPayment := timescale.DashboardPayment{
+		ID:               payment.ID,
+		ProfileID:        payment.ProfileID,
+		Amount:           payment.Amount,
+		Currency:         payment.Currency,
+		SubscriptionType: payment.SubscriptionType,
+		PaymentMethod:    payment.PaymentMethod,
+		Status:           payment.Status,
+		PaymentIntentID:  payment.ID, // Use payment ID as intent ID for NOWPayments
+		CreatedAt:        payment.CreatedAt,
+		UpdatedAt:        payment.UpdatedAt,
+	}
+
+	if err := r.db.WithContext(ctx).Create(&dbPayment).Error; err != nil {
+		return fmt.Errorf("failed to store payment: %w", err)
+	}
+
+	return nil
+}
+
+// UpdatePaymentStatus updates payment status
+func (r *dashboardRepository) UpdatePaymentStatus(ctx context.Context, paymentID, status string) error {
+	if err := r.db.WithContext(ctx).Model(&timescale.DashboardPayment{}).
+		Where("id = ?", paymentID).
+		Updates(map[string]interface{}{
+			"status":     status,
+			"updated_at": time.Now(),
+		}).Error; err != nil {
+		return fmt.Errorf("failed to update payment status: %w", err)
+	}
+
+	return nil
+}
+
+// GetPaymentByID retrieves a payment by ID
+func (r *dashboardRepository) GetPaymentByID(ctx context.Context, paymentID string) (*models.Payment, error) {
+	var payment timescale.DashboardPayment
+	if err := r.db.WithContext(ctx).Where("id = ?", paymentID).First(&payment).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("payment not found")
+		}
+		return nil, fmt.Errorf("failed to get payment: %w", err)
+	}
+
+	return &models.Payment{
+		ID:               payment.ID,
+		ProfileID:        payment.ProfileID,
+		Amount:           payment.Amount,
+		Currency:         payment.Currency,
+		SubscriptionType: payment.SubscriptionType,
+		PaymentMethod:    payment.PaymentMethod,
+		Status:           payment.Status,
+		CreatedAt:        payment.CreatedAt,
+		UpdatedAt:        payment.UpdatedAt,
+	}, nil
 }
 
 
@@ -504,29 +764,22 @@ func (r *dashboardRepository) GetPaymentHistory(ctx context.Context, profileID s
 	return payments, totalCount, nil
 }
 
-func (r *dashboardRepository) UpdatePaymentStatus(ctx context.Context, paymentID, status string) error {
-	return r.db.WithContext(ctx).Model(&timescale.DashboardPayment{}).
-		Where("id = ?", paymentID).
-		Updates(map[string]interface{}{
-			"status":     status,
-			"updated_at": time.Now(),
-		}).Error
-}
-
 // Helper function to convert GORM model to domain model
 func (r *dashboardRepository) gormToModel(profile timescale.CompanyProfile) *models.CompanyProfile {
 	return &models.CompanyProfile{
-		ID:               profile.ID,
-		Name:             profile.Name,
-		Description:      profile.Description,
-		Website:          profile.Website,
-		LogoURL:          profile.LogoURL,
-		FirstName:        profile.FirstName,
-		LastName:         profile.LastName,
-		Email:            profile.Email,
-		Password:         profile.Password,
-		SubscriptionPlan: profile.SubscriptionPlan,
-		CreatedAt:        profile.CreatedAt,
-		UpdatedAt:        profile.UpdatedAt,
+		ID:                    profile.ID,
+		Name:                  profile.Name,
+		Description:           profile.Description,
+		Website:               profile.Website,
+		LogoURL:               profile.LogoURL,
+		FirstName:             profile.FirstName,
+		LastName:              profile.LastName,
+		Email:                 profile.Email,
+		Password:              profile.Password,
+		SubscriptionPlan:      profile.SubscriptionPlan,
+		BillingCycle:          profile.BillingCycle,
+		SubscriptionExpiresAt: profile.SubscriptionExpiresAt,
+		CreatedAt:             profile.CreatedAt,
+		UpdatedAt:             profile.UpdatedAt,
 	}
 }

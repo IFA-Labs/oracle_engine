@@ -100,11 +100,14 @@ type CompanyProfile struct {
 	CreatedAt   time.Time `gorm:"type:timestamptz;not null" json:"created_at"`
 	UpdatedAt   time.Time `gorm:"type:timestamptz;not null" json:"updated_at"`
 	// merging user and company profile for now
-	FirstName        string `gorm:"type:text;not null" json:"first_name"`
-	LastName         string `gorm:"type:text;not null" json:"last_name"`
-	Password         string `gorm:"type:text;not null" json:"-"`
-	Email            string `gorm:"type:text;not null;uniqueIndex" json:"email"`
-	SubscriptionPlan string `gorm:"type:text;not null;default:'free'" json:"subscription_plan"` // free, developer, professional, enterprise
+	FirstName            string     `gorm:"type:text;not null" json:"first_name"`
+	LastName             string     `gorm:"type:text;not null" json:"last_name"`
+	Password             string     `gorm:"type:text;not null" json:"-"`
+	Email                 string     `gorm:"type:text;not null;uniqueIndex" json:"email"`
+	EmailVerified         bool       `gorm:"type:boolean;not null;default:false" json:"email_verified"`
+	SubscriptionPlan      string     `gorm:"type:text;not null;default:'free'" json:"subscription_plan"`       // free, developer, professional, enterprise
+	BillingCycle          string     `gorm:"type:text;default:'lifetime'" json:"billing_cycle"`                // monthly, annual, lifetime
+	SubscriptionExpiresAt *time.Time `gorm:"type:timestamptz" json:"subscription_expires_at,omitempty"`  // null for lifetime/free subscriptions
 
 	// Relationships
 	APIKeys  []DashboardAPIKey      `gorm:"foreignKey:ProfileID" json:"api_keys,omitempty"`
@@ -176,4 +179,27 @@ type DashboardPayment struct {
 
 func (DashboardPayment) TableName() string {
 	return "dashboard_payments"
+}
+
+// VerificationToken represents email verification tokens
+type VerificationToken struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	Token     string    `gorm:"type:text;not null;uniqueIndex" json:"token"`
+	Email     string    `gorm:"type:text;not null;index" json:"email"`
+	Type      string    `gorm:"type:text;not null;default:'email_verification'" json:"type"` // email_verification, password_reset, etc.
+	Used      bool      `gorm:"type:boolean;not null;default:false" json:"used"`
+	ExpiresAt time.Time `gorm:"type:timestamptz;not null" json:"expires_at"`
+	CreatedAt time.Time `gorm:"type:timestamptz;not null" json:"created_at"`
+}
+
+func (VerificationToken) TableName() string {
+	return "verification_tokens"
+}
+
+// BeforeCreate sets the ID if not already set
+func (vt *VerificationToken) BeforeCreate(tx *gorm.DB) error {
+	if vt.ID == uuid.Nil {
+		vt.ID = uuid.New()
+	}
+	return nil
 }

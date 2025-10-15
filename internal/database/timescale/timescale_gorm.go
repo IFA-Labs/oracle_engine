@@ -52,7 +52,7 @@ func (t *TimescaleGORM) Initialize(ctx context.Context) error {
 
 	// Auto-migrate tables
 	if err := t.db.AutoMigrate(&Price{}, &RawPrice{}, &PriceRawPriceLink{}, &Issuance{},
-		&CompanyProfile{}, &DashboardAPIKey{}, &DashboardAPIKeyUsage{}, &DashboardPayment{}); err != nil {
+		&CompanyProfile{}, &DashboardAPIKey{}, &DashboardAPIKeyUsage{}, &DashboardPayment{}, &VerificationToken{}); err != nil {
 		return err
 	}
 

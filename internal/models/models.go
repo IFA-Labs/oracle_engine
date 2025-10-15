@@ -163,18 +163,20 @@ func CalculatePriceChange(current, historical *UnifiedPrice, period string) *Pri
 
 // Dashboard domain models
 type CompanyProfile struct {
-	ID               string    `json:"id"`
-	Name             string    `json:"name"`
-	Description      string    `json:"description"`
-	Website          string    `json:"website"`
-	LogoURL          string    `json:"logo_url"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
-	FirstName        string    `json:"first_name"`
-	LastName         string    `json:"last_name"`
-	Email            string    `json:"email"`
-	Password         string    `json:"-"`                 // dont return password to user
-	SubscriptionPlan string    `json:"subscription_plan"` // "free", "developer", "professional", "enterprise"
+	ID                    string     `json:"id"`
+	Name                  string     `json:"name"`
+	Description           string     `json:"description"`
+	Website               string     `json:"website"`
+	LogoURL               string     `json:"logo_url"`
+	CreatedAt             time.Time  `json:"created_at"`
+	UpdatedAt             time.Time  `json:"updated_at"`
+	FirstName             string     `json:"first_name"`
+	LastName              string     `json:"last_name"`
+	Email                 string     `json:"email"`
+	Password              string     `json:"-"`                                             // dont return password to user
+	SubscriptionPlan      string     `json:"subscription_plan"`                             // "free", "developer", "professional", "enterprise"
+	BillingCycle          string     `json:"billing_cycle,omitempty"`                       // "monthly", "annual", "lifetime"
+	SubscriptionExpiresAt *time.Time `json:"subscription_expires_at,omitempty"`       // null for lifetime/free subscriptions
 }
 
 type SignUpRequest struct {
@@ -282,16 +284,17 @@ type PaymentHistoryResponse struct {
 
 // Subscription plan limits
 type SubscriptionPlan struct {
-	Name           string  `json:"name"`
-	Price          float64 `json:"price"`           // Monthly price in USD
-	APIRequests    int64   `json:"api_requests"`    // Monthly API request limit (0 = unlimited)
-	RateLimit      int     `json:"rate_limit"`      // Rate limit in hours
-	DataAccess     string  `json:"data_access"`     // Description of data access level
-	CustomPairs    int     `json:"custom_pairs"`    // Number of custom pairs allowed
-	RequestCost    float64 `json:"request_cost"`    // Cost per request in USD
-	Support        string  `json:"support"`         // Support level description
-	HistoricalData bool    `json:"historical_data"` // Access to historical data
-	PrivateData    bool    `json:"private_data"`    // Access to private data feeds
+	Name                 string  `json:"name"`
+	Price                float64 `json:"price"`                    // Monthly price in USD
+	SubscriptionDuration int     `json:"subscription_duration"`    // Duration in days (30 = monthly, 365 = yearly, 0 = lifetime)
+	APIRequests          int64   `json:"api_requests"`             // Monthly API request limit (0 = unlimited)
+	RateLimit            int     `json:"rate_limit"`               // Rate limit in hours
+	DataAccess           string  `json:"data_access"`              // Description of data access level
+	CustomPairs          int     `json:"custom_pairs"`             // Number of custom pairs allowed
+	RequestCost          float64 `json:"request_cost"`             // Cost per request in USD
+	Support              string  `json:"support"`                  // Support level description
+	HistoricalData       bool    `json:"historical_data"`          // Access to historical data
+	PrivateData          bool    `json:"private_data"`             // Access to private data feeds
 }
 
 // API Usage tracking with subscription context
@@ -304,4 +307,114 @@ type APIKeyUsageStats struct {
 	DailyUsage       int64     `json:"daily_usage"`       // Today's usage
 	LastRequestTime  time.Time `json:"last_request_time"` // For rate limiting
 	IsLimitExceeded  bool      `json:"is_limit_exceeded"`
+}
+
+// Email verification models
+type InitiateRegistrationRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+type InitiateRegistrationResponse struct {
+	Message string `json:"message"`
+	Email   string `json:"email"`
+}
+
+type VerifyTokenResponse struct {
+	Valid bool   `json:"valid"`
+	Email string `json:"email,omitempty"`
+	Error string `json:"error,omitempty"`
+}
+
+type CompleteRegistrationRequest struct {
+	Token       string `json:"token" binding:"required"`
+	Name        string `json:"name" binding:"required,min=1"`
+	FirstName   string `json:"first_name" binding:"required,min=1"`
+	LastName    string `json:"last_name" binding:"required,min=1"`
+	Password    string `json:"password" binding:"required,min=6"`
+	Description string `json:"description"`
+	Website     string `json:"website" binding:"omitempty,url"`
+}
+
+type CompleteRegistrationResponse struct {
+	ID      string `json:"id"`
+	Email   string `json:"email"`
+	Message string `json:"message"`
+}
+
+// Password reset models
+type ForgotPasswordRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+type ForgotPasswordResponse struct {
+	Message string `json:"message"`
+	Email   string `json:"email"`
+}
+
+type VerifyResetTokenResponse struct {
+	Valid bool   `json:"valid"`
+	Email string `json:"email,omitempty"`
+	Error string `json:"error,omitempty"`
+}
+
+type ResetPasswordRequest struct {
+	Token    string `json:"token" binding:"required"`
+	Password string `json:"password" binding:"required,min=8"`
+}
+
+type ResetPasswordResponse struct {
+	Message string `json:"message"`
+}
+
+// Change password models
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" binding:"required"`
+	NewPassword     string `json:"new_password" binding:"required,min=8"`
+}
+
+type ChangePasswordResponse struct {
+	Message string `json:"message"`
+}
+
+// Subscription activation models
+type ActivateSubscriptionRequest struct {
+	UserID        string  `json:"user_id" binding:"required"`
+	PlanID        string  `json:"plan_id" binding:"required"`
+	BillingCycle  string  `json:"billing_cycle" binding:"required,oneof=monthly annual lifetime"`
+	PaymentID     string  `json:"payment_id" binding:"required"`
+	AmountPaid    float64 `json:"amount_paid" binding:"required,gt=0"`
+	PayCurrency   string  `json:"pay_currency" binding:"required"`
+	OrderID       string  `json:"order_id" binding:"required"`
+}
+
+type ActivateSubscriptionResponse struct {
+	Message               string     `json:"message"`
+	SubscriptionPlan      string     `json:"subscription_plan"`
+	BillingCycle          string     `json:"billing_cycle"`
+	SubscriptionExpiresAt *time.Time `json:"subscription_expires_at,omitempty"`
+}
+
+// NOWPayments storage models
+type StorePaymentRequest struct {
+	PaymentID     string  `json:"payment_id" binding:"required"`
+	OrderID       string  `json:"order_id" binding:"required"`
+	Amount        float64 `json:"amount" binding:"required"`
+	Currency      string  `json:"currency" binding:"required"`
+	PayCurrency   string  `json:"pay_currency" binding:"required"`
+	Status        string  `json:"status" binding:"required"`
+	PayAddress    string  `json:"pay_address"`
+	PayAmount     float64 `json:"pay_amount"`
+	ActuallyPaid  float64 `json:"actually_paid"`
+	PriceAmount   float64 `json:"price_amount"`
+	PriceCurrency string  `json:"price_currency"`
+}
+
+type UpdatePaymentStatusRequest struct {
+	PaymentID string `json:"payment_id" binding:"required"`
+	Status    string `json:"status" binding:"required"`
+}
+
+type PaymentStorageResponse struct {
+	Message   string `json:"message"`
+	PaymentID string `json:"payment_id"`
 }

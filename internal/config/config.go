@@ -45,17 +45,18 @@ var DefaultAssetSetting = AssetSetting{
 type ApiKey map[string]string
 
 type SubscriptionPlan struct {
-	Name             string  `mapstructure:"name"`
-	Price            float64 `mapstructure:"price"`               // Monthly price in USD
-	APIRequests      int64   `mapstructure:"api_requests"`        // Monthly API request limit (0 = unlimited)
-	RateLimitPerHour int     `mapstructure:"rate_limit_per_hour"` // Requests allowed per hour (0 = unlimited)
-	RateLimitPerDay  int     `mapstructure:"rate_limit_per_day"`  // Requests allowed per day (0 = unlimited)
-	DataAccess       string  `mapstructure:"data_access"`         // Description of data access level
-	CustomPairs      int     `mapstructure:"custom_pairs"`        // Number of custom pairs allowed
-	RequestCost      float64 `mapstructure:"request_cost"`        // Cost per request in USD
-	Support          string  `mapstructure:"support"`             // Support level description
-	HistoricalData   bool    `mapstructure:"historical_data"`     // Access to historical data
-	PrivateData      bool    `mapstructure:"private_data"`        // Access to private data feeds
+	Name                 string  `mapstructure:"name"`
+	Price                float64 `mapstructure:"price"`                    // Monthly price in USD
+	SubscriptionDuration int     `mapstructure:"subscription_duration"`    // Duration in days (30 = monthly, 365 = yearly, 0 = lifetime)
+	APIRequests          int64   `mapstructure:"api_requests"`             // Monthly API request limit (0 = unlimited)
+	RateLimitPerHour     int     `mapstructure:"rate_limit_per_hour"`      // Requests allowed per hour (0 = unlimited)
+	RateLimitPerDay      int     `mapstructure:"rate_limit_per_day"`       // Requests allowed per day (0 = unlimited)
+	DataAccess           string  `mapstructure:"data_access"`              // Description of data access level
+	CustomPairs          int     `mapstructure:"custom_pairs"`             // Number of custom pairs allowed
+	RequestCost          float64 `mapstructure:"request_cost"`             // Cost per request in USD
+	Support              string  `mapstructure:"support"`                  // Support level description
+	HistoricalData       bool    `mapstructure:"historical_data"`          // Access to historical data
+	PrivateData          bool    `mapstructure:"private_data"`             // Access to private data feeds
 }
 
 type Config struct {
