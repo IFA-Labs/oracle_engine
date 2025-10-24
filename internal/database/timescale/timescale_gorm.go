@@ -52,7 +52,7 @@ func (t *TimescaleGORM) Initialize(ctx context.Context) error {
 
 	// Auto-migrate tables
 	if err := t.db.AutoMigrate(&Price{}, &RawPrice{}, &PriceRawPriceLink{}, &Issuance{},
-		&CompanyProfile{}, &DashboardAPIKey{}, &DashboardAPIKeyUsage{}, &DashboardPayment{}, &VerificationToken{}); err != nil {
+		&CompanyProfile{}, &DashboardAPIKey{}, &DashboardAPIKeyUsage{}, &DashboardPayment{}, &VerificationToken{}, &Invoice{}); err != nil {
 		return err
 	}
 
@@ -64,6 +64,11 @@ func (t *TimescaleGORM) Initialize(ctx context.Context) error {
 	// Create additional indexes
 	if err := t.db.Exec("CREATE INDEX IF NOT EXISTS idx_prices_id ON prices(id)").Error; err != nil {
 		logging.Logger.Warn("Failed to create index", zap.Error(err))
+	}
+
+	// Create invoice table indexes and constraints
+	if err := t.setupInvoiceTable(); err != nil {
+		logging.Logger.Warn("Failed to setup invoice table", zap.Error(err))
 	}
 
 	logging.Logger.Info("Database tables initialized with GORM")
@@ -482,5 +487,75 @@ func (t *TimescaleGORM) handleKeyEncryptedMigration() error {
 		}
 	}
 	
+	return nil
+}
+
+// setupInvoiceTable creates indexes and constraints for the invoice table
+func (t *TimescaleGORM) setupInvoiceTable() error {
+	// Add foreign key constraint to company_profiles table
+	if err := t.db.Exec(`
+		DO $$ 
+		BEGIN
+			IF NOT EXISTS (
+				SELECT 1 FROM information_schema.table_constraints 
+				WHERE constraint_name = 'fk_invoices_account_id' 
+				AND table_name = 'invoices'
+			) THEN
+				ALTER TABLE invoices 
+				ADD CONSTRAINT fk_invoices_account_id 
+				FOREIGN KEY (account_id) REFERENCES company_profiles(id) ON DELETE CASCADE;
+			END IF;
+		END $$;
+	`).Error; err != nil {
+		logging.Logger.Warn("Failed to add foreign key constraint for invoices", zap.Error(err))
+	}
+
+	// Add unique index to prevent duplicate invoices per account per due date
+	if err := t.db.Exec(`
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_invoices_account_due_date 
+		ON invoices (account_id, due_date) 
+		WHERE status != 'void';
+	`).Error; err != nil {
+		logging.Logger.Warn("Failed to create unique index for invoices", zap.Error(err))
+	}
+
+	// Add performance indexes
+	indexes := []string{
+		"CREATE INDEX IF NOT EXISTS idx_invoices_account_id ON invoices (account_id);",
+		"CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices (status);",
+		"CREATE INDEX IF NOT EXISTS idx_invoices_due_date ON invoices (due_date);",
+		"CREATE INDEX IF NOT EXISTS idx_invoices_issued_at ON invoices (issued_at);",
+	}
+
+	for _, indexSQL := range indexes {
+		if err := t.db.Exec(indexSQL).Error; err != nil {
+			logging.Logger.Warn("Failed to create invoice index", zap.Error(err), zap.String("sql", indexSQL))
+		}
+	}
+
+	// Add trigger to automatically update updated_at timestamp
+	if err := t.db.Exec(`
+		CREATE OR REPLACE FUNCTION update_invoices_updated_at()
+		RETURNS TRIGGER AS $$
+		BEGIN
+			NEW.updated_at = NOW();
+			RETURN NEW;
+		END;
+		$$ LANGUAGE plpgsql;
+	`).Error; err != nil {
+		logging.Logger.Warn("Failed to create update_invoices_updated_at function", zap.Error(err))
+	}
+
+	if err := t.db.Exec(`
+		DROP TRIGGER IF EXISTS trigger_update_invoices_updated_at ON invoices;
+		CREATE TRIGGER trigger_update_invoices_updated_at
+			BEFORE UPDATE ON invoices
+			FOR EACH ROW
+			EXECUTE FUNCTION update_invoices_updated_at();
+	`).Error; err != nil {
+		logging.Logger.Warn("Failed to create invoice update trigger", zap.Error(err))
+	}
+
+	logging.Logger.Info("Invoice table setup completed")
 	return nil
 }

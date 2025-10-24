@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"net/http"
 	"oracle_engine/internal/config"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
@@ -44,14 +45,26 @@ import (
 // @in header
 // @name X-API-Key
 // @description API key for accessing Oracle Engine endpoints.
+
+// Exchange rate response types
+type GetUSDToNGNRateResponse struct {
+	Rate      float64 `json:"rate"`
+	From      string  `json:"from"`
+	To        string  `json:"to"`
+	Timestamp string  `json:"timestamp"`
+	Source    string  `json:"source"`
+}
 type API struct {
-	priceService     services.PriceService
-	issuanceService  services.IssuanceService
-	dashboardService services.DashboardService
-	priceCh          chan models.Issuance
-	priceStreamer    *PriceStreamer
-	cfg              *config.Config
-	authMiddleware   *middleware.AuthMiddleware
+	priceService        services.PriceService
+	issuanceService     services.IssuanceService
+	dashboardService    services.DashboardService
+	invoiceService      services.InvoiceService
+	schedulerService    services.SchedulerService
+	exchangeRateService *services.ExchangeRateService
+	priceCh             chan models.Issuance
+	priceStreamer       *PriceStreamer
+	cfg                 *config.Config
+	authMiddleware      *middleware.AuthMiddleware
 }
 
 func NewAPI(priceService services.PriceService, issuanceService services.IssuanceService, dashboardService services.DashboardService, priceCh chan models.Issuance, cfg *config.Config) *API {
@@ -62,12 +75,23 @@ func NewAPI(priceService services.PriceService, issuanceService services.Issuanc
 	// Initialize auth middleware
 	authMiddleware := middleware.NewAuthMiddleware(cfg.JWTSecret, dashboardService)
 
+	// Initialize invoice and scheduler services
+	emailService := utils.NewEmailService()
+	invoiceService := services.NewInvoiceService(dashboardService.GetRepository(), emailService)
+	schedulerService := services.NewSchedulerService(dashboardService.GetRepository(), emailService)
+	
+	// Initialize exchange rate service
+	exchangeRateService := services.NewExchangeRateService(cfg.ApiKeys["ifalabs"], cfg.IFALabsAPIURL)
+
 	return &API{
-		priceService:     priceService,
-		issuanceService:  issuanceService,
-		dashboardService: dashboardService,
-		priceCh:          priceCh,
-		priceStreamer:    priceStreamer,
+		priceService:        priceService,
+		issuanceService:     issuanceService,
+		dashboardService:    dashboardService,
+		invoiceService:      invoiceService,
+		schedulerService:    schedulerService,
+		exchangeRateService: exchangeRateService,
+		priceCh:             priceCh,
+		priceStreamer:       priceStreamer,
 		cfg:              cfg,
 		authMiddleware:   authMiddleware,
 	}
@@ -140,10 +164,19 @@ func (a *API) RegisterRoutes(router *gin.Engine) {
 		// Payment endpoints (placeholder)
 		protected.POST("/:id/payment", a.handleCreatePayment)
 		protected.GET("/:id/payment/history", a.handleGetPaymentHistory)
+	// Invoice endpoints
+	protected.GET("/:id/invoices", a.handleGetInvoices)
+	protected.GET("/:id/invoices/:invoice_id", a.handleGetInvoiceByID)
+	protected.GET("/:id/invoices/number/:invoice_number", a.handleGetInvoiceByNumber)
+	protected.PUT("/:id/invoices/:invoice_id/status", a.handleUpdateInvoiceStatus)
 	}
 
 	// Public subscription plan information (no auth required)
 	router.GET("/api/subscription/plans", a.handleGetSubscriptionPlans)
+
+	// Exchange rate endpoints (no auth required for public access)
+	router.GET("/api/exchange-rates/usd-ngn", a.handleGetUSDToNGNRate)
+	router.GET("/api/exchange-rates", a.handleGetExchangeRate)
 
 	url := ginSwagger.URL("/swagger/doc.json")
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
@@ -158,6 +191,17 @@ func (a *API) RegisterRoutes(router *gin.Engine) {
 	router.GET("/api/status/services", a.handleServiceStatus)
 	router.GET("/api/status/incidents", a.handleIncidents)
 	router.GET("/api/status/uptime", a.handleUptimeStats)
+
+	// Admin invoice management endpoints (require admin authentication)
+	admin := router.Group("/api/admin")
+	admin.Use(a.authMiddleware.JWTAuth()) // Add admin role check here
+	{
+		admin.GET("/invoices", a.handleAdminGetInvoices)
+		admin.GET("/invoices/:invoice_id", a.handleAdminGetInvoiceByID)
+		admin.PUT("/invoices/:invoice_id/status", a.handleAdminUpdateInvoiceStatus)
+		admin.POST("/invoices/generate", a.handleAdminGenerateInvoices)
+		admin.GET("/invoices/job/status", a.handleAdminGetJobStatus)
+	}
 }
 
 // @Summary User Sign Up a company
@@ -1152,6 +1196,75 @@ func (a *API) handleGetSubscriptionPlans(c *gin.Context) {
 	})
 }
 
+// @Summary Get USD to NGN exchange rate
+// @Description Fetches the current USD to NGN exchange rate from IFA Labs API
+// @Tags exchange-rates
+// @Accept json
+// @Produce json
+// @Success 200 {object} GetUSDToNGNRateResponse
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /exchange-rates/usd-ngn [get]
+func (a *API) handleGetUSDToNGNRate(c *gin.Context) {
+	rate, err := a.exchangeRateService.GetUSDToNGNRate(c.Request.Context())
+	if err != nil {
+		logging.Logger.Error("Failed to get USD to NGN rate", zap.Error(err))
+		c.JSON(500, gin.H{"error": "Failed to fetch exchange rate"})
+		return
+	}
+
+	response := GetUSDToNGNRateResponse{
+		Rate:      rate,
+		From:      "USD",
+		To:        "NGN",
+		Timestamp: "", // Will be filled by the service if needed
+		Source:    "IFA Labs API",
+	}
+
+	c.JSON(200, response)
+}
+
+// @Summary Get exchange rate
+// @Description Fetches exchange rate for supported currency pairs
+// @Tags exchange-rates
+// @Accept json
+// @Produce json
+// @Param from query string true "From currency (e.g., USD)"
+// @Param to query string true "To currency (e.g., NGN)"
+// @Success 200 {object} GetUSDToNGNRateResponse
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /exchange-rates [get]
+func (a *API) handleGetExchangeRate(c *gin.Context) {
+	from := c.Query("from")
+	to := c.Query("to")
+
+	if from == "" || to == "" {
+		c.JSON(400, gin.H{"error": "Both 'from' and 'to' parameters are required"})
+		return
+	}
+
+	rate, err := a.exchangeRateService.GetExchangeRate(c.Request.Context(), from, to)
+	if err != nil {
+		logging.Logger.Error("Failed to get exchange rate",
+			zap.Error(err),
+			zap.String("from", from),
+			zap.String("to", to))
+		c.JSON(500, gin.H{"error": "Failed to fetch exchange rate"})
+		return
+	}
+
+	response := GetUSDToNGNRateResponse{
+		Rate:      rate,
+		From:      from,
+		To:        to,
+		Timestamp: "", // Will be filled by the service if needed
+		Source:    "IFA Labs API",
+	}
+
+	c.JSON(200, response)
+}
+
 // @Summary Get system status
 // @Description Returns overall system status and health information
 // @Tags status
@@ -1277,4 +1390,346 @@ func (a *API) handleUptimeStats(c *gin.Context) {
 	}
 	
 	c.JSON(200, uptimeStats)
+}
+
+// Invoice handler methods
+
+// @Summary Get user invoices
+// @Description Get all invoices for a specific user account
+// @Tags invoices
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Param page query int false "Page number" default(1)
+// @Param page_size query int false "Page size" default(10)
+// @Security BearerAuth
+// @Success 200 {object} models.InvoiceListResponse
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/dashboard/{id}/invoices [get]
+func (a *API) handleGetInvoices(c *gin.Context) {
+	userID := c.Param("id")
+	
+	// Parse pagination parameters
+	page := 1
+	pageSize := 10
+	
+	if pageStr := c.Query("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+	
+	if pageSizeStr := c.Query("page_size"); pageSizeStr != "" {
+		if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 && ps <= 100 {
+			pageSize = ps
+		}
+	}
+	
+	offset := (page - 1) * pageSize
+	
+	response, err := a.invoiceService.GetInvoicesByAccount(c.Request.Context(), userID, pageSize, offset)
+	if err != nil {
+		logging.Logger.Error("Failed to get invoices", zap.Error(err), zap.String("user_id", userID))
+		c.JSON(500, gin.H{"error": "Failed to get invoices"})
+		return
+	}
+	
+	c.JSON(200, response)
+}
+
+// @Summary Get invoice by ID
+// @Description Get a specific invoice by its ID
+// @Tags invoices
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Param invoice_id path string true "Invoice ID"
+// @Security BearerAuth
+// @Success 200 {object} models.Invoice
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/dashboard/{id}/invoices/{invoice_id} [get]
+func (a *API) handleGetInvoiceByID(c *gin.Context) {
+	invoiceID := c.Param("invoice_id")
+	
+	invoice, err := a.invoiceService.GetInvoiceByID(c.Request.Context(), invoiceID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(404, gin.H{"error": "Invoice not found"})
+			return
+		}
+		logging.Logger.Error("Failed to get invoice", zap.Error(err), zap.String("invoice_id", invoiceID))
+		c.JSON(500, gin.H{"error": "Failed to get invoice"})
+		return
+	}
+	
+	c.JSON(200, invoice)
+}
+
+// @Summary Get invoice by number
+// @Description Get a specific invoice by its invoice number
+// @Tags invoices
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Param invoice_number path string true "Invoice Number"
+// @Security BearerAuth
+// @Success 200 {object} models.Invoice
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/dashboard/{id}/invoices/number/{invoice_number} [get]
+func (a *API) handleGetInvoiceByNumber(c *gin.Context) {
+	invoiceNumber := c.Param("invoice_number")
+	
+	invoice, err := a.invoiceService.GetInvoiceByNumber(c.Request.Context(), invoiceNumber)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(404, gin.H{"error": "Invoice not found"})
+			return
+		}
+		logging.Logger.Error("Failed to get invoice by number", zap.Error(err), zap.String("invoice_number", invoiceNumber))
+		c.JSON(500, gin.H{"error": "Failed to get invoice"})
+		return
+	}
+	
+	c.JSON(200, invoice)
+}
+
+// @Summary Update invoice status
+// @Description Update the status of an invoice for a specific user
+// @Tags invoices
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Param invoice_id path string true "Invoice ID"
+// @Param request body models.UpdateInvoiceStatusRequest true "Update invoice status request"
+// @Security BearerAuth
+// @Success 200 {object} models.Invoice
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/dashboard/{id}/invoices/{invoice_id}/status [put]
+func (a *API) handleUpdateInvoiceStatus(c *gin.Context) {
+	userID := c.Param("id")
+	invoiceID := c.Param("invoice_id")
+
+	if userID == "" || invoiceID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "User ID and invoice ID are required"})
+		return
+	}
+
+	var req models.UpdateInvoiceStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	// Verify the invoice belongs to the user
+	invoice, err := a.invoiceService.GetInvoiceByID(c.Request.Context(), invoiceID)
+	if err != nil {
+		logging.Logger.Error("Failed to get invoice",
+			zap.Error(err),
+			zap.String("user_id", userID),
+			zap.String("invoice_id", invoiceID))
+		c.JSON(http.StatusNotFound, gin.H{"error": "Invoice not found"})
+		return
+	}
+
+	if invoice.AccountID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		return
+	}
+
+	// Update invoice status
+	err = a.invoiceService.UpdateInvoiceStatus(c.Request.Context(), invoiceID, &req)
+	if err != nil {
+		logging.Logger.Error("Failed to update invoice status",
+			zap.Error(err),
+			zap.String("invoice_id", invoiceID),
+			zap.String("status", req.Status))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update invoice status"})
+		return
+	}
+
+	// Get updated invoice
+	updatedInvoice, err := a.invoiceService.GetInvoiceByID(c.Request.Context(), invoiceID)
+	if err != nil {
+		logging.Logger.Error("Failed to get updated invoice",
+			zap.Error(err),
+			zap.String("invoice_id", invoiceID))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get updated invoice"})
+		return
+	}
+
+	c.JSON(http.StatusOK, updatedInvoice)
+}
+
+// Admin invoice handler methods
+
+// @Summary Get all invoices (Admin)
+// @Description Get all invoices with pagination (Admin only)
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Param page query int false "Page number" default(1)
+// @Param page_size query int false "Page size" default(10)
+// @Param status query string false "Filter by status"
+// @Security BearerAuth
+// @Success 200 {object} models.InvoiceListResponse
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/admin/invoices [get]
+func (a *API) handleAdminGetInvoices(c *gin.Context) {
+	// Parse pagination parameters
+	page := 1
+	pageSize := 10
+	
+	if pageStr := c.Query("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+	
+	if pageSizeStr := c.Query("page_size"); pageSizeStr != "" {
+		if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 && ps <= 100 {
+			pageSize = ps
+		}
+	}
+	
+	offset := (page - 1) * pageSize
+	
+	// Check if filtering by status
+	status := c.Query("status")
+	
+	var response *models.InvoiceListResponse
+	var err error
+	
+	if status != "" {
+		response, err = a.invoiceService.GetInvoicesByStatus(c.Request.Context(), status, pageSize, offset)
+	} else {
+		// For admin, we might want to get all invoices regardless of account
+		// This would require a new repository method
+		c.JSON(500, gin.H{"error": "Admin invoice listing not implemented yet"})
+		return
+	}
+	
+	if err != nil {
+		logging.Logger.Error("Failed to get invoices", zap.Error(err))
+		c.JSON(500, gin.H{"error": "Failed to get invoices"})
+		return
+	}
+	
+	c.JSON(200, response)
+}
+
+// @Summary Get invoice by ID (Admin)
+// @Description Get a specific invoice by its ID (Admin only)
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Param invoice_id path string true "Invoice ID"
+// @Security BearerAuth
+// @Success 200 {object} models.Invoice
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/admin/invoices/{invoice_id} [get]
+func (a *API) handleAdminGetInvoiceByID(c *gin.Context) {
+	invoiceID := c.Param("invoice_id")
+	
+	invoice, err := a.invoiceService.GetInvoiceByID(c.Request.Context(), invoiceID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(404, gin.H{"error": "Invoice not found"})
+			return
+		}
+		logging.Logger.Error("Failed to get invoice", zap.Error(err), zap.String("invoice_id", invoiceID))
+		c.JSON(500, gin.H{"error": "Failed to get invoice"})
+		return
+	}
+	
+	c.JSON(200, invoice)
+}
+
+// @Summary Update invoice status (Admin)
+// @Description Update the status of an invoice (Admin only)
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Param invoice_id path string true "Invoice ID"
+// @Param request body models.UpdateInvoiceStatusRequest true "Update invoice status request"
+// @Security BearerAuth
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/admin/invoices/{invoice_id}/status [put]
+func (a *API) handleAdminUpdateInvoiceStatus(c *gin.Context) {
+	invoiceID := c.Param("invoice_id")
+	
+	var req models.UpdateInvoiceStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request body"})
+		return
+	}
+	
+	err := a.invoiceService.UpdateInvoiceStatus(c.Request.Context(), invoiceID, &req)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(404, gin.H{"error": "Invoice not found"})
+			return
+		}
+		logging.Logger.Error("Failed to update invoice status", zap.Error(err), zap.String("invoice_id", invoiceID))
+		c.JSON(500, gin.H{"error": "Failed to update invoice status"})
+		return
+	}
+	
+	c.JSON(200, gin.H{"message": "Invoice status updated successfully"})
+}
+
+// @Summary Generate invoices (Admin)
+// @Description Manually trigger invoice generation job (Admin only)
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} models.InvoiceGenerationJob
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/admin/invoices/generate [post]
+func (a *API) handleAdminGenerateInvoices(c *gin.Context) {
+	err := a.schedulerService.RunInvoiceGenerationJob(c.Request.Context())
+	if err != nil {
+		logging.Logger.Error("Failed to run invoice generation job", zap.Error(err))
+		c.JSON(500, gin.H{"error": "Failed to run invoice generation job"})
+		return
+	}
+	
+	c.JSON(200, gin.H{"message": "Invoice generation job started successfully"})
+}
+
+// @Summary Get job status (Admin)
+// @Description Get the status of the invoice generation job (Admin only)
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} map[string]interface{}
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/admin/invoices/job/status [get]
+func (a *API) handleAdminGetJobStatus(c *gin.Context) {
+	status := a.schedulerService.GetJobStatus()
+	c.JSON(200, status)
 }

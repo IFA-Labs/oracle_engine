@@ -418,3 +418,51 @@ type PaymentStorageResponse struct {
 	Message   string `json:"message"`
 	PaymentID string `json:"payment_id"`
 }
+
+// Invoice domain models
+type Invoice struct {
+	ID            string                 `json:"id"`
+	InvoiceNumber string                 `json:"invoice_number"`
+	AccountID     string                 `json:"account_id"`
+	Amount        int64                  `json:"amount"` // Amount in cents
+	Currency      string                 `json:"currency"`
+	DueDate       time.Time              `json:"due_date"`
+	IssuedAt      time.Time              `json:"issued_at"`
+	Status        string                 `json:"status"` // pending, paid, failed, void
+	Metadata      map[string]interface{} `json:"metadata"`
+	PaidAt        *time.Time             `json:"paid_at,omitempty"`
+	PaymentID     *string                `json:"payment_id,omitempty"`
+	CreatedAt     time.Time              `json:"created_at"`
+	UpdatedAt     time.Time              `json:"updated_at"`
+}
+
+type CreateInvoiceRequest struct {
+	AccountID string                 `json:"account_id" binding:"required"`
+	Amount    int64                  `json:"amount" binding:"required,gt=0"`
+	Currency  string                 `json:"currency" binding:"required"`
+	DueDate   time.Time              `json:"due_date" binding:"required"`
+	Metadata  map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type UpdateInvoiceStatusRequest struct {
+	Status    string     `json:"status" binding:"required,oneof=pending paid failed void"`
+	PaymentID *string    `json:"payment_id,omitempty"`
+	PaidAt    *time.Time `json:"paid_at,omitempty"`
+}
+
+type InvoiceListResponse struct {
+	Invoices    []Invoice `json:"invoices"`
+	TotalCount  int64     `json:"total_count"`
+	Page        int       `json:"page"`
+	PageSize    int       `json:"page_size"`
+}
+
+type InvoiceGenerationJob struct {
+	ID        string    `json:"id"`
+	Status    string    `json:"status"` // running, completed, failed
+	StartedAt time.Time `json:"started_at"`
+	EndedAt   *time.Time `json:"ended_at,omitempty"`
+	InvoicesCreated int `json:"invoices_created"`
+	EmailsSent int `json:"emails_sent"`
+	Errors     []string `json:"errors,omitempty"`
+}

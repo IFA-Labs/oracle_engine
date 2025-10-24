@@ -203,3 +203,35 @@ func (vt *VerificationToken) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
+
+// Invoice represents the invoices table
+type Invoice struct {
+	ID            uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	InvoiceNumber string         `gorm:"type:varchar(255);not null;uniqueIndex" json:"invoice_number"`
+	AccountID     string         `gorm:"type:varchar(255);not null;index" json:"account_id"`
+	Amount        int64          `gorm:"type:bigint;not null" json:"amount"` // Amount in cents
+	Currency      string         `gorm:"type:varchar(10);not null;default:'USD'" json:"currency"`
+	DueDate       time.Time      `gorm:"type:timestamptz;not null;index" json:"due_date"`
+	IssuedAt      time.Time      `gorm:"type:timestamptz;not null;default:now();index" json:"issued_at"`
+	Status        string         `gorm:"type:varchar(50);not null;default:'pending';index" json:"status"` // pending, paid, failed, void
+	Metadata      datatypes.JSON `gorm:"type:jsonb;default:'{}'" json:"metadata"`
+	PaidAt        *time.Time     `gorm:"type:timestamptz" json:"paid_at,omitempty"`
+	PaymentID     *string        `gorm:"type:varchar(255)" json:"payment_id,omitempty"`
+	CreatedAt     time.Time      `gorm:"type:timestamptz;not null;default:now()" json:"created_at"`
+	UpdatedAt     time.Time      `gorm:"type:timestamptz;not null;default:now()" json:"updated_at"`
+
+	// Relationships
+	Account CompanyProfile `gorm:"foreignKey:AccountID;references:ID" json:"account,omitempty"`
+}
+
+func (Invoice) TableName() string {
+	return "invoices"
+}
+
+// BeforeCreate sets the ID if not already set
+func (i *Invoice) BeforeCreate(tx *gorm.DB) error {
+	if i.ID == uuid.Nil {
+		i.ID = uuid.New()
+	}
+	return nil
+}

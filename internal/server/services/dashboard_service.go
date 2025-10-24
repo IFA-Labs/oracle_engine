@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -70,6 +71,9 @@ type DashboardService interface {
 	// Payment management (placeholder for future implementation)
 	CreatePayment(ctx context.Context, profileID string, req *models.CreatePaymentRequest) (*models.Payment, error)
 	GetPaymentHistory(ctx context.Context, profileID string, page, pageSize int) (*models.PaymentHistoryResponse, error)
+	
+	// Repository access for other services
+	GetRepository() repository.DashboardRepository
 }
 
 func NewDashboardService(repo repository.DashboardRepository, jwtSecret string, cfg *config.Config) DashboardService {
@@ -78,6 +82,11 @@ func NewDashboardService(repo repository.DashboardRepository, jwtSecret string, 
 		jwtSecret: jwtSecret,
 		config:    cfg,
 	}
+}
+
+// GetRepository returns the repository instance (needed for invoice service)
+func (s *dashboardService) GetRepository() repository.DashboardRepository {
+	return s.repo
 }
 
 func (s *dashboardService) SignUp(ctx context.Context, req *models.SignUpRequest) (*models.SignUpResponse, error) {
@@ -707,6 +716,30 @@ func (s *dashboardService) ActivateSubscription(ctx context.Context, req *models
 		// Don't fail subscription activation if payment storage fails
 	}
 
+	// Create invoice for this payment immediately
+	var expiresAtTime time.Time
+	if expiresAt != nil {
+		expiresAtTime = *expiresAt
+	} else {
+		expiresAtTime = time.Now().Add(30 * 24 * time.Hour) // Default to 30 days
+	}
+	if err := s.createInvoiceForPayment(ctx, req.UserID, req.PlanID, req.BillingCycle, req.PaymentID, req.AmountPaid, "USD", expiresAtTime); err != nil {
+		logging.Logger.Error("Failed to create invoice for payment",
+			zap.Error(err),
+			zap.String("user_id", req.UserID),
+			zap.String("payment_id", req.PaymentID))
+		// Don't fail subscription activation if invoice creation fails
+	}
+
+	// Mark any pending invoices as paid (for recurring payments)
+	if err := s.markInvoicesAsPaid(ctx, req.UserID, req.PaymentID, req.AmountPaid, "USD"); err != nil {
+		logging.Logger.Error("Failed to mark invoices as paid",
+			zap.Error(err),
+			zap.String("user_id", req.UserID),
+			zap.String("payment_id", req.PaymentID))
+		// Don't fail subscription activation if invoice marking fails
+	}
+
 	// Get user profile for email
 	profile, err := s.repo.GetUserByID(ctx, req.UserID)
 	if err != nil {
@@ -743,6 +776,106 @@ func (s *dashboardService) ActivateSubscription(ctx context.Context, req *models
 		BillingCycle:          req.BillingCycle,
 		SubscriptionExpiresAt: expiresAt,
 	}, nil
+}
+
+// createInvoiceForPayment creates a paid invoice immediately when a payment is completed
+func (s *dashboardService) createInvoiceForPayment(ctx context.Context, userID string, planID string, billingCycle string, paymentID string, amount float64, currency string, expiresAt time.Time) error {
+	// Generate invoice number
+	invoiceNumber := fmt.Sprintf("INV-%s-%d", userID[:8], time.Now().Unix())
+	
+	// Convert amount to cents
+	amountCents := int64(amount * 100)
+	
+	// Create invoice metadata
+	metadata := map[string]interface{}{
+		"plan_id":         planID,
+		"billing_cycle":   billingCycle,
+		"payment_method":  "paystack",
+		"subscription_id": paymentID,
+		"created_from":    "payment_completion",
+	}
+	
+	// Create the invoice model
+	invoice := &models.Invoice{
+		ID:            uuid.New().String(),
+		InvoiceNumber: invoiceNumber,
+		AccountID:     userID,
+		Amount:        amountCents,
+		Currency:      currency,
+		DueDate:       time.Now(), // Due date is now since payment is completed
+		IssuedAt:      time.Now(),
+		Status:        "pending",
+		Metadata:      metadata,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+	
+	// Create the invoice
+	err := s.repo.CreateInvoice(ctx, invoice)
+	if err != nil {
+		return fmt.Errorf("failed to create invoice: %w", err)
+	}
+	
+	// Mark invoice as paid immediately
+	paidAt := time.Now()
+	if err := s.repo.UpdateInvoiceStatus(ctx, invoice.ID, "paid", &paymentID, &paidAt); err != nil {
+		logging.Logger.Error("Failed to mark invoice as paid",
+			zap.String("invoice_id", invoice.ID),
+			zap.String("payment_id", paymentID),
+			zap.Error(err))
+		return fmt.Errorf("failed to mark invoice as paid: %w", err)
+	}
+	
+	logging.Logger.Info("Invoice created and marked as paid",
+		zap.String("invoice_id", invoice.ID),
+		zap.String("invoice_number", invoice.InvoiceNumber),
+		zap.String("user_id", userID),
+		zap.String("payment_id", paymentID),
+		zap.Float64("amount", amount))
+	
+	return nil
+}
+
+// markInvoicesAsPaid marks pending invoices as paid when a payment is successful
+func (s *dashboardService) markInvoicesAsPaid(ctx context.Context, userID string, paymentID string, amount float64, currency string) error {
+	// Find pending invoices for this user
+	// We'll look for invoices due around now (within a reasonable time window)
+	now := time.Now()
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	
+	invoices, err := s.repo.GetInvoicesForPayment(ctx, userID, startOfDay)
+	if err != nil {
+		return fmt.Errorf("failed to get invoices for payment: %w", err)
+	}
+
+	if len(invoices) == 0 {
+		logging.Logger.Info("No pending invoices found for payment",
+			zap.String("user_id", userID),
+			zap.String("payment_id", paymentID),
+		)
+		return nil
+	}
+
+	// Mark invoices as paid
+	paidAt := time.Now()
+	for _, invoice := range invoices {
+		if err := s.repo.UpdateInvoiceStatus(ctx, invoice.ID, "paid", &paymentID, &paidAt); err != nil {
+			logging.Logger.Error("Failed to update invoice status",
+				zap.String("invoice_id", invoice.ID),
+				zap.String("payment_id", paymentID),
+				zap.Error(err),
+			)
+			continue
+		}
+
+		logging.Logger.Info("Invoice marked as paid",
+			zap.String("invoice_id", invoice.ID),
+			zap.String("invoice_number", invoice.InvoiceNumber),
+			zap.String("payment_id", paymentID),
+		)
+	}
+
+	return nil
 }
 
 func (s *dashboardService) StoreNOWPayment(ctx context.Context, req *models.StorePaymentRequest) (*models.PaymentStorageResponse, error) {

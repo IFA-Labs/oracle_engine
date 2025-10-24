@@ -88,6 +88,13 @@ func (e *EmailService) SendSubscriptionActivatedEmail(toEmail, name, planID, bil
 	return e.sendEmail(toEmail, subject, body)
 }
 
+func (e *EmailService) SendInvoiceNotification(toEmail string, emailData map[string]interface{}) error {
+	subject := "New Invoice - IFA Labs"
+	body := e.buildInvoiceNotificationEmailHTML(emailData)
+
+	return e.sendEmail(toEmail, subject, body)
+}
+
 func (e *EmailService) sendEmail(to, subject, body string) error {
 	// If SMTP credentials are not configured, log and return (development mode)
 	if e.SMTPUser == "" || e.SMTPPassword == "" {
@@ -529,6 +536,146 @@ func (e *EmailService) buildSubscriptionActivatedEmailHTML(email, name, planID, 
 </body>
 </html>
 `, name, planName, billingText, currentTime, expiryText, frontendURL, frontendURL, expiryText)
+}
+
+func (e *EmailService) buildInvoiceNotificationEmailHTML(emailData map[string]interface{}) string {
+	frontendURL := getEnvOrDefault("FRONTEND_URL", "http://localhost:3000")
+	
+	// Extract data from emailData map
+	accountName := emailData["AccountName"].(string)
+	invoiceNumber := emailData["InvoiceNumber"].(string)
+	amount := emailData["Amount"].(string)
+	currency := emailData["Currency"].(string)
+	dueDate := emailData["DueDate"].(string)
+	issuedDate := emailData["IssuedDate"].(string)
+	subscriptionPlan := emailData["SubscriptionPlan"].(string)
+	billingCycle := emailData["BillingCycle"].(string)
+	
+	// Format plan name
+	planName := subscriptionPlan
+	switch subscriptionPlan {
+	case "developer":
+		planName = "Developer"
+	case "professional":
+		planName = "Professional"
+	case "enterprise":
+		planName = "Enterprise"
+	case "free":
+		planName = "Free"
+	}
+	
+	// Format billing cycle
+	billingText := billingCycle
+	if billingCycle == "monthly" {
+		billingText = "Monthly"
+	} else if billingCycle == "annual" {
+		billingText = "Annual"
+	}
+	
+	return fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>New Invoice - IFA Labs</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="text-align: center; margin-bottom: 30px;">
+    <h1 style="color: #4F46E5; margin: 0;">IFA Labs</h1>
+  </div>
+  
+  <h2 style="color: #1a1a1a; margin-bottom: 20px;">📄 New Invoice</h2>
+  
+  <p style="margin-bottom: 20px;">Hello %s,</p>
+  
+  <p style="margin-bottom: 20px;">A new invoice has been generated for your IFA Labs subscription. Please review the details below.</p>
+  
+  <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px; margin: 20px 0;">
+    <h3 style="margin-top: 0; color: #4F46E5; font-size: 18px; text-align: center;">Invoice Details</h3>
+    
+    <table style="width: 100%%; border-collapse: collapse; margin: 16px 0;">
+      <tr>
+        <td style="padding: 8px 0; font-weight: bold; color: #374151;">Invoice Number:</td>
+        <td style="padding: 8px 0; color: #6b7280;">%s</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; font-weight: bold; color: #374151;">Amount:</td>
+        <td style="padding: 8px 0; color: #6b7280; font-size: 18px; font-weight: bold;">%s %s</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; font-weight: bold; color: #374151;">Due Date:</td>
+        <td style="padding: 8px 0; color: #6b7280;">%s</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; font-weight: bold; color: #374151;">Issued Date:</td>
+        <td style="padding: 8px 0; color: #6b7280;">%s</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; font-weight: bold; color: #374151;">Plan:</td>
+        <td style="padding: 8px 0; color: #6b7280;">%s Tier (%s)</td>
+      </tr>
+    </table>
+  </div>
+  
+  <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; margin: 20px 0;">
+    <p style="margin: 0; color: #92400e;">
+      <strong>⏰ Payment Due</strong><br>
+      Your payment is due on %s. Please ensure your payment method is up to date to avoid service interruption.
+    </p>
+  </div>
+  
+  <div style="text-align: center; margin: 30px 0;">
+    <a href="%s/billing" 
+       style="background-color: #4F46E5; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; margin-right: 10px;">
+      View Invoice
+    </a>
+    <a href="%s/payment" 
+       style="background-color: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+      Make Payment
+    </a>
+  </div>
+  
+  <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px; margin: 20px 0;">
+    <h3 style="margin-top: 0; color: #1e40af; font-size: 16px;">Payment Methods</h3>
+    <ul style="margin: 10px 0; padding-left: 20px; color: #1e3a8a;">
+      <li>Credit/Debit Card (Visa, Mastercard, American Express)</li>
+      <li>PayPal</li>
+      <li>Cryptocurrency (Bitcoin, Ethereum)</li>
+      <li>Bank Transfer</li>
+    </ul>
+  </div>
+  
+  <div style="background-color: #f9fafb; padding: 16px; margin: 20px 0; border-radius: 4px;">
+    <h3 style="margin-top: 0; color: #4F46E5; font-size: 16px;">Need Help?</h3>
+    <p style="margin: 10px 0; color: #666;">
+      If you have any questions about this invoice or need assistance with payment, please contact our support team. We're here to help!
+    </p>
+    <ul style="margin: 10px 0; padding-left: 20px; color: #666;">
+      <li>Email: support@ifalabs.com</li>
+      <li>Phone: +1 (555) 123-4567</li>
+      <li>Live Chat: Available 24/7 on our website</li>
+    </ul>
+  </div>
+  
+  <div style="background-color: #fee2e2; border-left: 4px solid #ef4444; padding: 16px; margin: 20px 0;">
+    <p style="margin: 0; color: #991b1b;">
+      <strong>⚠ Important:</strong> If you do not recognize this invoice or believe it was sent in error, please contact our support team immediately.
+    </p>
+  </div>
+  
+  <p style="color: #666; font-size: 14px; margin-top: 30px;">
+    Thank you for your continued trust in IFA Labs. We appreciate your business!
+  </p>
+  
+  <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 30px 0;">
+  
+  <p style="color: #999; font-size: 12px; text-align: center;">
+    © 2024 IFA Labs. All rights reserved.<br>
+    This is an automated message. Please do not reply to this email.
+  </p>
+</body>
+</html>
+`, accountName, invoiceNumber, amount, currency, dueDate, issuedDate, planName, billingText, dueDate, frontendURL, frontendURL)
 }
 
 // ValidateEmail performs basic email validation

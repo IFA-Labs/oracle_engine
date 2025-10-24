@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"oracle_engine/internal/database/timescale"
@@ -14,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -67,6 +69,17 @@ type DashboardRepository interface {
 	// Payment management (basic structure for future implementation)
 	CreatePayment(ctx context.Context, payment *models.Payment) error
 	GetPaymentHistory(ctx context.Context, profileID string, limit int, offset int) ([]models.Payment, int64, error)
+
+	// Invoice management
+	CreateInvoice(ctx context.Context, invoice *models.Invoice) error
+	GetInvoiceByID(ctx context.Context, invoiceID string) (*models.Invoice, error)
+	GetInvoiceByNumber(ctx context.Context, invoiceNumber string) (*models.Invoice, error)
+	GetInvoicesByAccount(ctx context.Context, accountID string, limit int, offset int) ([]models.Invoice, int64, error)
+	GetInvoicesByStatus(ctx context.Context, status string, limit int, offset int) ([]models.Invoice, int64, error)
+	GetInvoicesDueSoon(ctx context.Context, daysAhead int) ([]models.Invoice, error)
+	UpdateInvoiceStatus(ctx context.Context, invoiceID string, status string, paymentID *string, paidAt *time.Time) error
+	CheckInvoiceExists(ctx context.Context, accountID string, dueDate time.Time) (bool, error)
+	GetInvoicesForPayment(ctx context.Context, accountID string, dueDate time.Time) ([]models.Invoice, error)
 }
 
 type dashboardRepository struct {
@@ -764,6 +777,228 @@ func (r *dashboardRepository) GetPaymentHistory(ctx context.Context, profileID s
 	return payments, totalCount, nil
 }
 
+// Invoice management methods
+
+// CreateInvoice creates a new invoice
+func (r *dashboardRepository) CreateInvoice(ctx context.Context, invoice *models.Invoice) error {
+	dbInvoice := timescale.Invoice{
+		ID:            uuid.New(),
+		InvoiceNumber: invoice.InvoiceNumber,
+		AccountID:     invoice.AccountID,
+		Amount:        invoice.Amount,
+		Currency:      invoice.Currency,
+		DueDate:       invoice.DueDate,
+		IssuedAt:      invoice.IssuedAt,
+		Status:        invoice.Status,
+		Metadata:      convertToDatatypesJSON(invoice.Metadata),
+		PaidAt:        invoice.PaidAt,
+		PaymentID:     invoice.PaymentID,
+		CreatedAt:     invoice.CreatedAt,
+		UpdatedAt:     invoice.UpdatedAt,
+	}
+
+	if err := r.db.WithContext(ctx).Create(&dbInvoice).Error; err != nil {
+		return fmt.Errorf("failed to create invoice: %w", err)
+	}
+
+	// Update the invoice ID in the model
+	invoice.ID = dbInvoice.ID.String()
+	return nil
+}
+
+// GetInvoiceByID retrieves an invoice by ID
+func (r *dashboardRepository) GetInvoiceByID(ctx context.Context, invoiceID string) (*models.Invoice, error) {
+	var dbInvoice timescale.Invoice
+	if err := r.db.WithContext(ctx).Where("id = ?", invoiceID).First(&dbInvoice).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("invoice not found")
+		}
+		return nil, fmt.Errorf("failed to get invoice: %w", err)
+	}
+
+	return r.invoiceGormToModel(dbInvoice), nil
+}
+
+// GetInvoiceByNumber retrieves an invoice by invoice number
+func (r *dashboardRepository) GetInvoiceByNumber(ctx context.Context, invoiceNumber string) (*models.Invoice, error) {
+	var dbInvoice timescale.Invoice
+	if err := r.db.WithContext(ctx).Where("invoice_number = ?", invoiceNumber).First(&dbInvoice).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("invoice not found")
+		}
+		return nil, fmt.Errorf("failed to get invoice: %w", err)
+	}
+
+	return r.invoiceGormToModel(dbInvoice), nil
+}
+
+// GetInvoicesByAccount retrieves invoices for a specific account
+func (r *dashboardRepository) GetInvoicesByAccount(ctx context.Context, accountID string, limit int, offset int) ([]models.Invoice, int64, error) {
+	var dbInvoices []timescale.Invoice
+	var totalCount int64
+
+	// Get total count
+	if err := r.db.WithContext(ctx).Model(&timescale.Invoice{}).Where("account_id = ?", accountID).Count(&totalCount).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count invoices: %w", err)
+	}
+
+	// Get invoices with pagination
+	query := r.db.WithContext(ctx).Where("account_id = ?", accountID).Order("created_at DESC")
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	if offset > 0 {
+		query = query.Offset(offset)
+	}
+
+	if err := query.Find(&dbInvoices).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to get invoices: %w", err)
+	}
+
+	invoices := make([]models.Invoice, len(dbInvoices))
+	for i, dbInvoice := range dbInvoices {
+		invoices[i] = *r.invoiceGormToModel(dbInvoice)
+	}
+
+	return invoices, totalCount, nil
+}
+
+// GetInvoicesByStatus retrieves invoices by status
+func (r *dashboardRepository) GetInvoicesByStatus(ctx context.Context, status string, limit int, offset int) ([]models.Invoice, int64, error) {
+	var dbInvoices []timescale.Invoice
+	var totalCount int64
+
+	// Get total count
+	if err := r.db.WithContext(ctx).Model(&timescale.Invoice{}).Where("status = ?", status).Count(&totalCount).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count invoices: %w", err)
+	}
+
+	// Get invoices with pagination
+	query := r.db.WithContext(ctx).Where("status = ?", status).Order("created_at DESC")
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	if offset > 0 {
+		query = query.Offset(offset)
+	}
+
+	if err := query.Find(&dbInvoices).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to get invoices: %w", err)
+	}
+
+	invoices := make([]models.Invoice, len(dbInvoices))
+	for i, dbInvoice := range dbInvoices {
+		invoices[i] = *r.invoiceGormToModel(dbInvoice)
+	}
+
+	return invoices, totalCount, nil
+}
+
+// GetInvoicesDueSoon retrieves invoices due within the specified number of days
+func (r *dashboardRepository) GetInvoicesDueSoon(ctx context.Context, daysAhead int) ([]models.Invoice, error) {
+	var dbInvoices []timescale.Invoice
+	
+	// Calculate the date range
+	now := time.Now()
+	endDate := now.AddDate(0, 0, daysAhead)
+	
+	// Get invoices due within the date range
+	if err := r.db.WithContext(ctx).
+		Where("due_date BETWEEN ? AND ? AND status = ?", now, endDate, "pending").
+		Order("due_date ASC").
+		Find(&dbInvoices).Error; err != nil {
+		return nil, fmt.Errorf("failed to get invoices due soon: %w", err)
+	}
+
+	invoices := make([]models.Invoice, len(dbInvoices))
+	for i, dbInvoice := range dbInvoices {
+		invoices[i] = *r.invoiceGormToModel(dbInvoice)
+	}
+
+	return invoices, nil
+}
+
+// UpdateInvoiceStatus updates an invoice's status and payment information
+func (r *dashboardRepository) UpdateInvoiceStatus(ctx context.Context, invoiceID string, status string, paymentID *string, paidAt *time.Time) error {
+	updates := map[string]interface{}{
+		"status":     status,
+		"updated_at": time.Now(),
+	}
+
+	if paymentID != nil {
+		updates["payment_id"] = *paymentID
+	}
+	if paidAt != nil {
+		updates["paid_at"] = *paidAt
+	}
+
+	if err := r.db.WithContext(ctx).Model(&timescale.Invoice{}).
+		Where("id = ?", invoiceID).
+		Updates(updates).Error; err != nil {
+		return fmt.Errorf("failed to update invoice status: %w", err)
+	}
+
+	return nil
+}
+
+// CheckInvoiceExists checks if an invoice already exists for an account and due date
+func (r *dashboardRepository) CheckInvoiceExists(ctx context.Context, accountID string, dueDate time.Time) (bool, error) {
+	var count int64
+	
+	// Normalize the due date to start of day for comparison
+	startOfDay := time.Date(dueDate.Year(), dueDate.Month(), dueDate.Day(), 0, 0, 0, 0, dueDate.Location())
+	endOfDay := startOfDay.Add(24 * time.Hour)
+	
+	if err := r.db.WithContext(ctx).Model(&timescale.Invoice{}).
+		Where("account_id = ? AND due_date BETWEEN ? AND ? AND status != ?", accountID, startOfDay, endOfDay, "void").
+		Count(&count).Error; err != nil {
+		return false, fmt.Errorf("failed to check invoice existence: %w", err)
+	}
+
+	return count > 0, nil
+}
+
+// GetInvoicesForPayment retrieves invoices for a specific account and due date (for payment processing)
+func (r *dashboardRepository) GetInvoicesForPayment(ctx context.Context, accountID string, dueDate time.Time) ([]models.Invoice, error) {
+	var dbInvoices []timescale.Invoice
+	
+	// Normalize the due date to start of day for comparison
+	startOfDay := time.Date(dueDate.Year(), dueDate.Month(), dueDate.Day(), 0, 0, 0, 0, dueDate.Location())
+	endOfDay := startOfDay.Add(24 * time.Hour)
+	
+	if err := r.db.WithContext(ctx).
+		Where("account_id = ? AND due_date BETWEEN ? AND ? AND status = ?", accountID, startOfDay, endOfDay, "pending").
+		Find(&dbInvoices).Error; err != nil {
+		return nil, fmt.Errorf("failed to get invoices for payment: %w", err)
+	}
+
+	invoices := make([]models.Invoice, len(dbInvoices))
+	for i, dbInvoice := range dbInvoices {
+		invoices[i] = *r.invoiceGormToModel(dbInvoice)
+	}
+
+	return invoices, nil
+}
+
+// Helper function to convert GORM invoice model to domain model
+func (r *dashboardRepository) invoiceGormToModel(dbInvoice timescale.Invoice) *models.Invoice {
+	return &models.Invoice{
+		ID:            dbInvoice.ID.String(),
+		InvoiceNumber: dbInvoice.InvoiceNumber,
+		AccountID:     dbInvoice.AccountID,
+		Amount:        dbInvoice.Amount,
+		Currency:      dbInvoice.Currency,
+		DueDate:       dbInvoice.DueDate,
+		IssuedAt:      dbInvoice.IssuedAt,
+		Status:        dbInvoice.Status,
+		Metadata:      convertFromDatatypesJSON(dbInvoice.Metadata),
+		PaidAt:        dbInvoice.PaidAt,
+		PaymentID:     dbInvoice.PaymentID,
+		CreatedAt:     dbInvoice.CreatedAt,
+		UpdatedAt:     dbInvoice.UpdatedAt,
+	}
+}
+
 // Helper function to convert GORM model to domain model
 func (r *dashboardRepository) gormToModel(profile timescale.CompanyProfile) *models.CompanyProfile {
 	return &models.CompanyProfile{
@@ -782,4 +1017,31 @@ func (r *dashboardRepository) gormToModel(profile timescale.CompanyProfile) *mod
 		CreatedAt:             profile.CreatedAt,
 		UpdatedAt:             profile.UpdatedAt,
 	}
+}
+
+// Helper function to convert map[string]interface{} to datatypes.JSON
+func convertToDatatypesJSON(metadata map[string]interface{}) datatypes.JSON {
+	if metadata == nil {
+		return datatypes.JSON("{}")
+	}
+	jsonBytes, err := json.Marshal(metadata)
+	if err != nil {
+		logging.Logger.Error("Failed to marshal metadata to JSON", zap.Error(err))
+		return datatypes.JSON("{}")
+	}
+	return datatypes.JSON(jsonBytes)
+}
+
+// Helper function to convert datatypes.JSON to map[string]interface{}
+func convertFromDatatypesJSON(metadata datatypes.JSON) map[string]interface{} {
+	if len(metadata) == 0 {
+		return make(map[string]interface{})
+	}
+	var result map[string]interface{}
+	err := json.Unmarshal(metadata, &result)
+	if err != nil {
+		logging.Logger.Error("Failed to unmarshal metadata from JSON", zap.Error(err))
+		return make(map[string]interface{})
+	}
+	return result
 }

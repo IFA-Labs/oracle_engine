@@ -73,6 +73,7 @@ type Config struct {
 	SERVER_PORT          string                      `mapstructure:"server_port"`
 	JWTSecret            string                      `mapstructure:"jwt_secret"`
 	SubscriptionPlans    map[string]SubscriptionPlan `mapstructure:"subscription_plans"`
+	IFALabsAPIURL        string                      `mapstructure:"ifa_labs_api_url"`
 }
 
 func Load() *Config {
@@ -83,6 +84,7 @@ func Load() *Config {
 	viper.SetDefault("price_pool_ttl", 10)
 	viper.SetDefault("aggregator_nodes", 3)
 	viper.SetDefault("consensus_threshold", 0.01)
+	viper.SetDefault("ifa_labs_api_url", os.Getenv("IFA_LABS_API_URL"))
 	viper.SetDefault("api_keys", map[string]string{
 		"monierate":     os.Getenv("MONIERATE_API_KEY"),
 		"exchangerate":  os.Getenv("EXCHANGERATE_API_KEY"),
@@ -90,6 +92,7 @@ func Load() *Config {
 		"fixer":         os.Getenv("FIXER_API_KEY"),
 		"currencylayer": os.Getenv("CURRENCYLAYER_API_KEY"),
 		"moralis":       os.Getenv("MORALIS_API_KEY"),
+		"ifalabs":       os.Getenv("IFA_LABS_API_KEY"),
 	})
 	viper.SetDefault("subscription_plans", map[string]SubscriptionPlan{
 		"free": {
