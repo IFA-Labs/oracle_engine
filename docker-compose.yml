@@ -107,17 +107,18 @@ services:
   # -------------------------
   # Certbot for SSL issuance & renewal
   # -------------------------
-certbot:
-  image: certbot/certbot:latest
-  container_name: certbot
-  volumes:
-    - ./certbot/www:/var/www/certbot:rw
-    - ./letsencrypt:/etc/letsencrypt:rw
-  networks:
-    - oracle-net
-  logging: *small-logging
+  certbot:
+    image: certbot/certbot:latest
+    container_name: certbot
+    volumes:
+      - ./certbot/www:/var/www/certbot:rw
+      - ./letsencrypt:/etc/letsencrypt:rw
+    networks:
+      - oracle-net
+    logging: *small-logging
+
   # -------------------------
-  # Optional: Auto-renew cron (runs every 12h)
+  # Auto-renew cron (every 12h)
   # -------------------------
   certbot-renewal:
     image: certbot/certbot:latest
