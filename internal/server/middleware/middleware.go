@@ -29,8 +29,16 @@ func CORS(next http.Handler) http.Handler {
 // SetupCORS configures CORS middleware for Gin
 func SetupCORS() gin.HandlerFunc {
 	return cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000", "http://localhost:8080", "https://yourdomain.com"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowOrigins:     []string{
+			"http://localhost:3000", 
+			"http://localhost:8080", 
+			"https://ifa-labs-dashboard.vercel.app",
+			"https://ifalabs-dashboard.vercel.app",
+			"https://dashboard.ifalabs.com",
+			"https://ifalabs.com",
+			"https://www.ifalabs.com",
+		},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-API-Key"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
