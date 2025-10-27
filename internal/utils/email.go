@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"net/smtp"
 	"oracle_engine/internal/logging"
@@ -21,11 +22,21 @@ type EmailService struct {
 }
 
 func NewEmailService() *EmailService {
+	smtpUser := getEnvOrDefault("SMTP_USER", "")
+	smtpPassword := getEnvOrDefault("SMTP_PASSWORD", "")
+	
+	logging.Logger.Info("EmailService initialized",
+		zap.String("smtp_host", getEnvOrDefault("SMTP_HOST", "smtp.gmail.com")),
+		zap.String("smtp_port", getEnvOrDefault("SMTP_PORT", "587")),
+		zap.String("smtp_user", smtpUser),
+		zap.Bool("has_password", smtpPassword != ""),
+		zap.String("from_email", getEnvOrDefault("SMTP_FROM_EMAIL", "noreply@ifalabs.com")))
+	
 	return &EmailService{
 		SMTPHost:     getEnvOrDefault("SMTP_HOST", "smtp.gmail.com"),
 		SMTPPort:     getEnvOrDefault("SMTP_PORT", "587"),
-		SMTPUser:     getEnvOrDefault("SMTP_USER", ""),
-		SMTPPassword: getEnvOrDefault("SMTP_PASSWORD", ""),
+		SMTPUser:     smtpUser,
+		SMTPPassword: smtpPassword,
 		FromEmail:    getEnvOrDefault("SMTP_FROM_EMAIL", "noreply@ifalabs.com"),
 		FromName:     getEnvOrDefault("SMTP_FROM_NAME", "IFA Labs"),
 	}
@@ -121,14 +132,36 @@ func (e *EmailService) sendEmail(to, subject, body string) error {
 		"\r\n"+
 		"%s", from, to, subject, body))
 
-	// Send email
+	// Send email with timeout
 	addr := fmt.Sprintf("%s:%s", e.SMTPHost, e.SMTPPort)
-	err := smtp.SendMail(addr, auth, e.FromEmail, []string{to}, msg)
+	
+	// Create a context with 30 second timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	
+	// Send email in a goroutine to avoid blocking
+	errChan := make(chan error, 1)
+	go func() {
+		err := smtp.SendMail(addr, auth, e.FromEmail, []string{to}, msg)
+		errChan <- err
+	}()
+	
+	// Wait for either the email to send or the timeout
+	var err error
+	select {
+	case err = <-errChan:
+		// Email send completed
+	case <-ctx.Done():
+		err = fmt.Errorf("email send timed out after 30 seconds")
+	}
+	
 	if err != nil {
 		logging.Logger.Error("Failed to send email",
 			zap.Error(err),
 			zap.String("to", to),
-			zap.String("subject", subject))
+			zap.String("subject", subject),
+			zap.String("smtp_host", e.SMTPHost),
+			zap.String("smtp_port", e.SMTPPort))
 		return err
 	}
 
