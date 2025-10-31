@@ -30,15 +30,15 @@ func NewEmailService() *EmailService {
 		zap.String("smtp_port", getEnvOrDefault("SMTP_PORT", "587")),
 		zap.String("smtp_user", smtpUser),
 		zap.Bool("has_password", smtpPassword != ""),
-		zap.String("from_email", getEnvOrDefault("SMTP_FROM_EMAIL", "noreply@ifalabs.com")))
+		zap.String("from_email", getEnvOrDefault("SMTP_FROM_EMAIL", "noreply@IFÁlabs.com")))
 	
 	return &EmailService{
 		SMTPHost:     getEnvOrDefault("SMTP_HOST", "smtp.gmail.com"),
 		SMTPPort:     getEnvOrDefault("SMTP_PORT", "587"),
 		SMTPUser:     smtpUser,
 		SMTPPassword: smtpPassword,
-		FromEmail:    getEnvOrDefault("SMTP_FROM_EMAIL", "noreply@ifalabs.com"),
-		FromName:     getEnvOrDefault("SMTP_FROM_NAME", "IFA Labs"),
+		FromEmail:    getEnvOrDefault("SMTP_FROM_EMAIL", "noreply@IFÁlabs.com"),
+		FromName:     getEnvOrDefault("SMTP_FROM_NAME", "IFÁ Labs"),
 	}
 }
 
@@ -54,14 +54,14 @@ func (e *EmailService) SendVerificationEmail(toEmail, verificationToken string) 
 	frontendURL := getEnvOrDefault("FRONTEND_URL", "http://localhost:3000")
 	verificationLink := fmt.Sprintf("%s/complete-registration?token=%s", frontendURL, verificationToken)
 
-	subject := "Verify your email address - IFA Labs"
+	subject := "Verify your email address - IFÁ Labs"
 	body := e.buildVerificationEmailHTML(toEmail, verificationLink)
 
 	return e.sendEmail(toEmail, subject, body)
 }
 
 func (e *EmailService) SendWelcomeEmail(toEmail, name string) error {
-	subject := "Welcome to IFA Labs!"
+	subject := "Welcome to IFÁ Labs!"
 	body := e.buildWelcomeEmailHTML(name)
 
 	return e.sendEmail(toEmail, subject, body)
@@ -72,35 +72,35 @@ func (e *EmailService) SendPasswordResetEmail(toEmail, resetToken string) error 
 	frontendURL := getEnvOrDefault("FRONTEND_URL", "http://localhost:3000")
 	resetLink := fmt.Sprintf("%s/reset-password?token=%s", frontendURL, resetToken)
 
-	subject := "Reset your password - IFA Labs"
+	subject := "Reset your password - IFÁ Labs"
 	body := e.buildPasswordResetEmailHTML(toEmail, resetLink)
 
 	return e.sendEmail(toEmail, subject, body)
 }
 
 func (e *EmailService) SendPasswordChangedEmail(toEmail, name string) error {
-	subject := "Password Changed Successfully - IFA Labs"
+	subject := "Password Changed Successfully - IFÁ Labs"
 	body := e.buildPasswordChangedEmailHTML(toEmail, name)
 
 	return e.sendEmail(toEmail, subject, body)
 }
 
 func (e *EmailService) SendAPIKeyCreatedEmail(toEmail, name, keyName, apiKeyPreview string) error {
-	subject := "New API Key Created - IFA Labs"
+	subject := "New API Key Created - IFÁ Labs"
 	body := e.buildAPIKeyCreatedEmailHTML(toEmail, name, keyName, apiKeyPreview)
 
 	return e.sendEmail(toEmail, subject, body)
 }
 
 func (e *EmailService) SendSubscriptionActivatedEmail(toEmail, name, planID, billingCycle string, expiresAt *time.Time) error {
-	subject := "Subscription Activated - IFA Labs"
+	subject := "Subscription Activated - IFÁ Labs"
 	body := e.buildSubscriptionActivatedEmailHTML(toEmail, name, planID, billingCycle, expiresAt)
 
 	return e.sendEmail(toEmail, subject, body)
 }
 
 func (e *EmailService) SendInvoiceNotification(toEmail string, emailData map[string]interface{}) error {
-	subject := "New Invoice - IFA Labs"
+	subject := "New Invoice - IFÁ Labs"
 	body := e.buildInvoiceNotificationEmailHTML(emailData)
 
 	return e.sendEmail(toEmail, subject, body)
@@ -177,16 +177,16 @@ func (e *EmailService) buildVerificationEmailHTML(email, verificationLink string
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Verify Your Email - IFA Labs</title>
+  <title>Verify Your Email - IFÁ Labs</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="text-align: center; margin-bottom: 30px;">
-    <h1 style="color: #4F46E5; margin: 0;">IFA Labs</h1>
+    <h1 style="color: #4F46E5; margin: 0;">IFÁ Labs</h1>
   </div>
   
   <h2 style="color: #1a1a1a; margin-bottom: 20px;">Verify Your Email Address</h2>
   
-  <p style="margin-bottom: 20px;">Thank you for signing up for IFA Labs! Please verify your email address to complete your registration.</p>
+  <p style="margin-bottom: 20px;">Thank you for signing up for IFÁ Labs! Please verify your email address to complete your registration.</p>
   
   <div style="text-align: center; margin: 30px 0;">
     <a href="%s" 
@@ -207,7 +207,7 @@ func (e *EmailService) buildVerificationEmailHTML(email, verificationLink string
   <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 30px 0;">
   
   <p style="color: #999; font-size: 12px; text-align: center;">
-    © 2024 IFA Labs. All rights reserved.
+    ©  IFÁ Labs. All rights reserved.
   </p>
 </body>
 </html>
@@ -220,16 +220,16 @@ func (e *EmailService) buildWelcomeEmailHTML(name string) string {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Welcome to IFA Labs</title>
+  <title>Welcome to IFÁ Labs</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="text-align: center; margin-bottom: 30px;">
-    <h1 style="color: #4F46E5; margin: 0;">IFA Labs</h1>
+    <h1 style="color: #4F46E5; margin: 0;">IFÁ Labs</h1>
   </div>
   
   <h2 style="color: #1a1a1a; margin-bottom: 20px;">Welcome %s!</h2>
   
-  <p style="margin-bottom: 20px;">Your account has been successfully created. You can now access all the features of IFA Labs Oracle Engine.</p>
+  <p style="margin-bottom: 20px;">Your account has been successfully created. You can now access all the features of IFÁ Labs Oracle Engine.</p>
   
   <div style="background-color: #f9fafb; border-left: 4px solid #4F46E5; padding: 16px; margin: 20px 0;">
     <h3 style="margin-top: 0; color: #4F46E5;">Getting Started</h3>
@@ -252,7 +252,7 @@ func (e *EmailService) buildWelcomeEmailHTML(name string) string {
   <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 30px 0;">
   
   <p style="color: #999; font-size: 12px; text-align: center;">
-    © 2024 IFA Labs. All rights reserved.
+    ©  IFÁ Labs. All rights reserved.
   </p>
 </body>
 </html>
@@ -265,16 +265,16 @@ func (e *EmailService) buildPasswordResetEmailHTML(email, resetLink string) stri
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Reset Your Password - IFA Labs</title>
+  <title>Reset Your Password - IFÁ Labs</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="text-align: center; margin-bottom: 30px;">
-    <h1 style="color: #4F46E5; margin: 0;">IFA Labs</h1>
+    <h1 style="color: #4F46E5; margin: 0;">IFÁ Labs</h1>
   </div>
   
   <h2 style="color: #1a1a1a; margin-bottom: 20px;">Reset Your Password</h2>
   
-  <p style="margin-bottom: 20px;">We received a request to reset your password for your IFA Labs account.</p>
+  <p style="margin-bottom: 20px;">We received a request to reset your password for your IFÁ Labs account.</p>
   
   <div style="text-align: center; margin: 30px 0;">
     <a href="%s" 
@@ -301,7 +301,7 @@ func (e *EmailService) buildPasswordResetEmailHTML(email, resetLink string) stri
   <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 30px 0;">
   
   <p style="color: #999; font-size: 12px; text-align: center;">
-    © 2024 IFA Labs. All rights reserved.
+    ©  IFÁ Labs. All rights reserved.
   </p>
 </body>
 </html>
@@ -317,18 +317,18 @@ func (e *EmailService) buildPasswordChangedEmailHTML(email, name string) string 
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Password Changed - IFA Labs</title>
+  <title>Password Changed - IFÁ Labs</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="text-align: center; margin-bottom: 30px;">
-    <h1 style="color: #4F46E5; margin: 0;">IFA Labs</h1>
+    <h1 style="color: #4F46E5; margin: 0;">IFÁ Labs</h1>
   </div>
   
   <h2 style="color: #1a1a1a; margin-bottom: 20px;">Password Changed Successfully</h2>
   
   <p style="margin-bottom: 20px;">Hello %s,</p>
   
-  <p style="margin-bottom: 20px;">This email confirms that your IFA Labs account password was successfully changed.</p>
+  <p style="margin-bottom: 20px;">This email confirms that your IFÁ Labs account password was successfully changed.</p>
   
   <div style="background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 16px; margin: 20px 0;">
     <p style="margin: 0; color: #065f46;">
@@ -357,7 +357,7 @@ func (e *EmailService) buildPasswordChangedEmailHTML(email, name string) string 
   <div style="background-color: #f9fafb; padding: 16px; margin: 20px 0; border-radius: 4px;">
     <h3 style="margin-top: 0; color: #4F46E5; font-size: 16px;">Security Tips</h3>
     <ul style="margin: 10px 0; padding-left: 20px; color: #666;">
-      <li>Use a unique password for your IFA Labs account</li>
+      <li>Use a unique password for your IFÁ Labs account</li>
       <li>Never share your password with anyone</li>
       <li>Enable two-factor authentication when available</li>
       <li>Review your account activity regularly</li>
@@ -371,7 +371,7 @@ func (e *EmailService) buildPasswordChangedEmailHTML(email, name string) string 
   <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 30px 0;">
   
   <p style="color: #999; font-size: 12px; text-align: center;">
-    © 2024 IFA Labs. All rights reserved.
+    ©  IFÁ Labs. All rights reserved.
   </p>
 </body>
 </html>
@@ -387,18 +387,18 @@ func (e *EmailService) buildAPIKeyCreatedEmailHTML(email, name, keyName, apiKeyP
 <html>
 <head>
   <meta charset="utf-8">
-  <title>New API Key Created - IFA Labs</title>
+  <title>New API Key Created - IFÁ Labs</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="text-align: center; margin-bottom: 30px;">
-    <h1 style="color: #4F46E5; margin: 0;">IFA Labs</h1>
+    <h1 style="color: #4F46E5; margin: 0;">IFÁ Labs</h1>
   </div>
   
   <h2 style="color: #1a1a1a; margin-bottom: 20px;">New API Key Created</h2>
   
   <p style="margin-bottom: 20px;">Hello %s,</p>
   
-  <p style="margin-bottom: 20px;">A new API key has been created for your IFA Labs account.</p>
+  <p style="margin-bottom: 20px;">A new API key has been created for your IFÁ Labs account.</p>
   
   <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px; margin: 20px 0;">
     <p style="margin: 0; color: #1e40af;">
@@ -454,7 +454,7 @@ func (e *EmailService) buildAPIKeyCreatedEmailHTML(email, name, keyName, apiKeyP
   <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 30px 0;">
   
   <p style="color: #999; font-size: 12px; text-align: center;">
-    © 2024 IFA Labs. All rights reserved.
+    ©  IFÁ Labs. All rights reserved.
   </p>
 </body>
 </html>
@@ -496,11 +496,11 @@ func (e *EmailService) buildSubscriptionActivatedEmailHTML(email, name, planID, 
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Subscription Activated - IFA Labs</title>
+  <title>Subscription Activated - IFÁ Labs</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="text-align: center; margin-bottom: 30px;">
-    <h1 style="color: #4F46E5; margin: 0;">IFA Labs</h1>
+    <h1 style="color: #4F46E5; margin: 0;">IFÁ Labs</h1>
   </div>
   
   <h2 style="color: #1a1a1a; margin-bottom: 20px;">🎉 Subscription Activated!</h2>
@@ -564,7 +564,7 @@ func (e *EmailService) buildSubscriptionActivatedEmailHTML(email, name, planID, 
   <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 30px 0;">
   
   <p style="color: #999; font-size: 12px; text-align: center;">
-    © 2024 IFA Labs. All rights reserved.
+    ©  IFÁ Labs. All rights reserved.
   </p>
 </body>
 </html>
@@ -610,18 +610,18 @@ func (e *EmailService) buildInvoiceNotificationEmailHTML(emailData map[string]in
 <html>
 <head>
   <meta charset="utf-8">
-  <title>New Invoice - IFA Labs</title>
+  <title>New Invoice - IFÁ Labs</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="text-align: center; margin-bottom: 30px;">
-    <h1 style="color: #4F46E5; margin: 0;">IFA Labs</h1>
+    <h1 style="color: #4F46E5; margin: 0;">IFÁ Labs</h1>
   </div>
   
   <h2 style="color: #1a1a1a; margin-bottom: 20px;">📄 New Invoice</h2>
   
   <p style="margin-bottom: 20px;">Hello %s,</p>
   
-  <p style="margin-bottom: 20px;">A new invoice has been generated for your IFA Labs subscription. Please review the details below.</p>
+  <p style="margin-bottom: 20px;">A new invoice has been generated for your IFÁ Labs subscription. Please review the details below.</p>
   
   <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px; margin: 20px 0;">
     <h3 style="margin-top: 0; color: #4F46E5; font-size: 18px; text-align: center;">Invoice Details</h3>
@@ -684,7 +684,7 @@ func (e *EmailService) buildInvoiceNotificationEmailHTML(emailData map[string]in
       If you have any questions about this invoice or need assistance with payment, please contact our support team. We're here to help!
     </p>
     <ul style="margin: 10px 0; padding-left: 20px; color: #666;">
-      <li>Email: support@ifalabs.com</li>
+      <li>Email: support@IFÁlabs.com</li>
       <li>Phone: +1 (555) 123-4567</li>
       <li>Live Chat: Available 24/7 on our website</li>
     </ul>
@@ -697,13 +697,13 @@ func (e *EmailService) buildInvoiceNotificationEmailHTML(emailData map[string]in
   </div>
   
   <p style="color: #666; font-size: 14px; margin-top: 30px;">
-    Thank you for your continued trust in IFA Labs. We appreciate your business!
+    Thank you for your continued trust in IFÁ Labs. We appreciate your business!
   </p>
   
   <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 30px 0;">
   
   <p style="color: #999; font-size: 12px; text-align: center;">
-    © 2024 IFA Labs. All rights reserved.<br>
+    ©  IFÁ Labs. All rights reserved.<br>
     This is an automated message. Please do not reply to this email.
   </p>
 </body>
