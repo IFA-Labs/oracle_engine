@@ -34,6 +34,8 @@ func SetupCORS() gin.HandlerFunc {
 			"http://localhost:8080", 
 			"https://ifa-labs-dashboard.vercel.app",
 			"https://ifalabs-dashboard.vercel.app",
+			"https://ifa-labs-dashboard.vercel.app",
+			"https://ifalabs-demo-site.vercel.app",
 			"https://dashboard.ifalabs.com",
 			"https://ifalabs.com",
 			"https://www.ifalabs.com",
