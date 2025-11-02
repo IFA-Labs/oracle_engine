@@ -99,8 +99,8 @@ func Load() *Config {
 			Name:             "Free tier",
 			Price:            0,
 			APIRequests:      1000,
-			RateLimitPerHour: 10,  // 10 requests per hour
-			RateLimitPerDay:  100, // 100 requests per day
+			RateLimitPerHour: 50,  // 50 requests per hour (increased from 10)
+			RateLimitPerDay:  500, // 500 requests per day (increased from 100)
 			DataAccess:       "Two feeds",
 			CustomPairs:      0,
 			RequestCost:      0,

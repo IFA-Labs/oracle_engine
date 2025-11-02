@@ -5,17 +5,48 @@ import (
 	"oracle_engine/internal/logging"
 	"time"
 
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
 // CORS middleware for standard http
+// Allows all origins for GET requests only
+// Only specific origins (dashboard.ifalabs.com and localhost:3000) can use all HTTP methods
 func CORS(next http.Handler) http.Handler {
+	allowedOriginsForAllMethods := []string{
+		"https://dashboard.ifalabs.com",
+		"http://localhost:3000",
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		origin := r.Header.Get("Origin")
+		method := r.Method
+
+		// Always allow GET requests from any origin
+		if method == "GET" {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+		} else {
+			// For non-GET methods, check if origin is in allowed list
+			isAllowedOrigin := false
+			for _, allowedOrigin := range allowedOriginsForAllMethods {
+				if origin == allowedOrigin {
+					isAllowedOrigin = true
+					break
+				}
+			}
+
+			if isAllowedOrigin {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+			} else {
+				// Reject non-GET requests from non-allowed origins
+				w.Header().Set("Access-Control-Allow-Origin", "")
+			}
+		}
 
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
@@ -27,25 +58,54 @@ func CORS(next http.Handler) http.Handler {
 }
 
 // SetupCORS configures CORS middleware for Gin
+// Allows all origins for GET requests only
+// Only specific origins (dashboard.ifalabs.com and localhost:3000) can use all HTTP methods
 func SetupCORS() gin.HandlerFunc {
-	return cors.New(cors.Config{
-		AllowOrigins:     []string{
-			"http://localhost:3000", 
-			"http://localhost:8080", 
-			"https://ifa-labs-dashboard.vercel.app",
-			"https://ifalabs-dashboard.vercel.app",
-			"https://ifa-labs-dashboard.vercel.app",
-			"https://ifalabs-demo-site.vercel.app",
-			"https://dashboard.ifalabs.com",
-			"https://ifalabs.com",
-			"https://www.ifalabs.com",
-		},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-API-Key"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
-	})
+	allowedOriginsForAllMethods := []string{
+		"https://dashboard.ifalabs.com",
+		"http://localhost:3000",
+	}
+
+	return func(c *gin.Context) {
+		origin := c.Request.Header.Get("Origin")
+		method := c.Request.Method
+
+		// Always allow GET requests from any origin
+		if method == "GET" {
+			c.Header("Access-Control-Allow-Origin", "*")
+			c.Header("Access-Control-Allow-Methods", "GET")
+			c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-API-Key")
+			c.Header("Access-Control-Expose-Headers", "Content-Length")
+		} else {
+			// For non-GET methods, check if origin is in allowed list
+			isAllowedOrigin := false
+			for _, allowedOrigin := range allowedOriginsForAllMethods {
+				if origin == allowedOrigin {
+					isAllowedOrigin = true
+					break
+				}
+			}
+
+			if isAllowedOrigin {
+				c.Header("Access-Control-Allow-Origin", origin)
+				c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD")
+				c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-API-Key")
+				c.Header("Access-Control-Expose-Headers", "Content-Length")
+				c.Header("Access-Control-Allow-Credentials", "true")
+			} else {
+				// Reject non-GET requests from non-allowed origins
+				c.Header("Access-Control-Allow-Origin", "")
+			}
+		}
+
+		// Handle preflight OPTIONS requests
+		if method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+
+		c.Next()
+	}
 }
 
 // RequestLogger logs HTTP requests for Gin
