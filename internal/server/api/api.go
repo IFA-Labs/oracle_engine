@@ -98,44 +98,12 @@ func NewAPI(priceService services.PriceService, issuanceService services.Issuanc
 }
 
 func (a *API) RegisterRoutes(router *gin.Engine) {
-	// CORS middleware: Allows all origins for GET requests only
-	// Only specific origins (dashboard.ifalabs.com and localhost:3000) can use all HTTP methods
-	allowedOriginsForAllMethods := []string{
-		"https://dashboard.ifalabs.com",
-		"http://localhost:3000",
-	}
-
+	// Add CORS middleware for production frontend access
 	router.Use(func(c *gin.Context) {
-		origin := c.Request.Header.Get("Origin")
-		method := c.Request.Method
-
-		// Always allow GET requests from any origin
-		if method == "GET" {
-			c.Header("Access-Control-Allow-Origin", "*")
-			c.Header("Access-Control-Allow-Methods", "GET")
-			c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-API-Key")
-			c.Header("Access-Control-Expose-Headers", "X-Total-Count, Content-Length")
-		} else {
-			// For non-GET methods, check if origin is in allowed list
-			isAllowedOrigin := false
-			for _, allowedOrigin := range allowedOriginsForAllMethods {
-				if origin == allowedOrigin {
-					isAllowedOrigin = true
-					break
-				}
-			}
-
-			if isAllowedOrigin {
-				c.Header("Access-Control-Allow-Origin", origin)
-				c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD")
-				c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-API-Key")
-				c.Header("Access-Control-Expose-Headers", "X-Total-Count, Content-Length")
-				c.Header("Access-Control-Allow-Credentials", "true")
-			} else {
-				// Reject non-GET requests from non-allowed origins
-				c.Header("Access-Control-Allow-Origin", "")
-			}
-		}
+		c.Header("Access-Control-Allow-Origin", "*") // In production, replace with your frontend domain
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+		c.Header("Access-Control-Expose-Headers", "X-Total-Count")
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)

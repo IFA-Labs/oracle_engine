@@ -70,8 +70,8 @@ subscription_plans:
     price: 0
     subscription_duration: 0    # Lifetime (no expiration)
     api_requests: 1000
-    rate_limit_per_hour: 50     # 50 requests per hour (increased from 10)
-    rate_limit_per_day: 500     # 500 requests per day (increased from 100)
+    rate_limit_per_hour: 10     # 10 requests per hour
+    rate_limit_per_day: 100     # 100 requests per day
     data_access: "Two feeds"
     custom_pairs: 0
     request_cost: 0
