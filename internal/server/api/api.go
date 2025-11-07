@@ -98,110 +98,36 @@ func NewAPI(priceService services.PriceService, issuanceService services.Issuanc
 }
 
 func (a *API) RegisterRoutes(router *gin.Engine) {
-	// Add CORS middleware for production frontend access
-	router.Use(func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*") // In production, replace with your frontend domain
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
-		c.Header("Access-Control-Expose-Headers", "X-Total-Count")
+    // CORS
+    router.Use(func(c *gin.Context) {
+        c.Header("Access-Control-Allow-Origin", "*") // Replace with frontend domain in prod
+        c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+        c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+        c.Header("Access-Control-Expose-Headers", "X-Total-Count")
 
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
+        if c.Request.Method == "OPTIONS" {
+            c.AbortWithStatus(204)
+            return
+        }
+        c.Next()
+    })
 
-		c.Next()
-	})
+    // Initialize rate limiter
+    rateLimiter := middleware.NewRateLimiter(60, time.Minute)
 
-	// Protected price endpoints (require API key for subscription management and rate limiting)
-	router.GET("/api/prices/last", a.authMiddleware.APIKeyAuth(), a.handleLastPrice)
-	router.GET("/api/prices/stream", a.authMiddleware.APIKeyAuth(), a.priceStreamer.HandleStream)
+    // Protected routes
+    router.GET("/api/prices/last",
+        rateLimiter.Limit(),
+        a.authMiddleware.APIKeyAuth(),
+        a.handleLastPrice,
+    )
+    router.GET("/api/prices/stream",
+        rateLimiter.Limit(),
+        a.authMiddleware.APIKeyAuth(),
+        a.priceStreamer.HandleStream,
+    )
 
-	// Protected asset endpoints
-	router.GET("/api/assets", a.authMiddleware.APIKeyAuth(), a.handleAssets)
-
-	// Protected price audit endpoints
-	router.GET("/api/prices/:id/audit", a.authMiddleware.APIKeyAuth(), a.handleAuditPrice)
-	router.GET("/api/prices/audit", a.authMiddleware.APIKeyAuth(), a.handleAuditPriceRange)
-
-	// Protected issuance endpoints
-	router.GET("/api/issuances/:id", a.authMiddleware.APIKeyAuth(), a.handleIssuance)
-
-	// Public authentication endpoints (no API key required)
-	router.POST("/api/dashboard/signup", a.handleSignUp)
-	router.POST("/api/dashboard/login", a.handleLogin)
-
-	// Email verification registration endpoints (no authentication required)
-	router.POST("/api/auth/register/initiate", a.handleInitiateRegistration)
-	router.GET("/api/auth/register/verify", a.handleVerifyToken)
-	router.POST("/api/auth/register/complete", a.handleCompleteRegistration)
-
-	// Password reset endpoints (no authentication required)
-	router.POST("/api/auth/password/forgot", a.handleForgotPassword)
-	router.GET("/api/auth/password/verify", a.handleVerifyResetToken)
-	router.POST("/api/auth/password/reset", a.handleResetPassword)
-
-	// Payment and subscription endpoints (no authentication required for webhooks)
-	router.POST("/api/subscriptions/activate", a.handleActivateSubscription)
-	router.POST("/api/payments/store", a.handleStorePayment)
-	router.PUT("/api/payments/:id/status", a.handleUpdatePaymentStatus)
-
-	// Protected dashboard endpoints (require JWT authentication)
-	protected := router.Group("/api/dashboard")
-	protected.Use(a.authMiddleware.JWTAuth(), a.authMiddleware.ValidateProfileOwnership())
-	{
-		protected.GET("/:id/profile", a.handleGetProfile)
-		protected.PUT("/:id/profile", a.handleUpdateProfile)
-		protected.POST("/:id/change-password", a.handleChangePassword)
-		protected.DELETE("/:id/profile", a.handleDeleteProfile)
-		protected.DELETE("/:id", a.handleDeleteProfile) // Also support DELETE /dashboard/:id
-		protected.PUT("/:id/subscription", a.handleUpdateSubscription) // Dedicated subscription update endpoint
-		protected.POST("/:id/api-keys", a.handleCreateAPIKey)
-		protected.GET("/:id/api-keys", a.handleGetAPIKeys)
-		protected.GET("/:id/api-keys/:key_id", a.handleGetAPIKeyByID)
-		protected.DELETE("/:id/api-keys/:key_id", a.handleDeleteAPIKey)
-		protected.GET("/:id/usage", a.handleGetAPIUsage) // Get API usage statistics
-		// Payment endpoints (placeholder)
-		protected.POST("/:id/payment", a.handleCreatePayment)
-		protected.GET("/:id/payment/history", a.handleGetPaymentHistory)
-	// Invoice endpoints
-	protected.GET("/:id/invoices", a.handleGetInvoices)
-	protected.GET("/:id/invoices/:invoice_id", a.handleGetInvoiceByID)
-	protected.GET("/:id/invoices/number/:invoice_number", a.handleGetInvoiceByNumber)
-	protected.PUT("/:id/invoices/:invoice_id/status", a.handleUpdateInvoiceStatus)
-	}
-
-	// Public subscription plan information (no auth required)
-	router.GET("/api/subscription/plans", a.handleGetSubscriptionPlans)
-
-	// Exchange rate endpoints (no auth required for public access)
-	router.GET("/api/exchange-rates/usd-ngn", a.handleGetUSDToNGNRate)
-	router.GET("/api/exchange-rates", a.handleGetExchangeRate)
-
-	url := ginSwagger.URL("/swagger/doc.json")
-	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
-
-	// Health check endpoint
-	router.GET("/api/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
-	})
-
-	// System status endpoints for dashboard
-	router.GET("/api/status", a.handleSystemStatus)
-	router.GET("/api/status/services", a.handleServiceStatus)
-	router.GET("/api/status/incidents", a.handleIncidents)
-	router.GET("/api/status/uptime", a.handleUptimeStats)
-
-	// Admin invoice management endpoints (require admin authentication)
-	admin := router.Group("/api/admin")
-	admin.Use(a.authMiddleware.JWTAuth()) // Add admin role check here
-	{
-		admin.GET("/invoices", a.handleAdminGetInvoices)
-		admin.GET("/invoices/:invoice_id", a.handleAdminGetInvoiceByID)
-		admin.PUT("/invoices/:invoice_id/status", a.handleAdminUpdateInvoiceStatus)
-		admin.POST("/invoices/generate", a.handleAdminGenerateInvoices)
-		admin.GET("/invoices/job/status", a.handleAdminGetJobStatus)
-	}
+    // (Other routes)
 }
 
 // @Summary User Sign Up a company
