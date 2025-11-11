@@ -121,6 +121,10 @@ func (a *API) RegisterRoutes(router *gin.Engine) {
 
 	// --- Public route
 	router.GET("/api/assets", a.handleAssets)
+	router.GET("/api/status", a.handleSystemStatus)
+	router.GET("/api/status/services", a.handleServiceStatus)
+	router.GET("/api/status/incidents", a.handleIncidents)
+	router.GET("/api/status/uptime", a.handleUptimeStats)
 
 	// --- Protected, rate-limited routes
 	router.GET(
