@@ -8,8 +8,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// rateLimiter provides simple in-memory rate limiting
-type rateLimiter struct {
+// RateLimiter provides simple in-memory rate limiting
+type RateLimiter struct {
 	mu       sync.Mutex
 	visitors map[string]*visitor
 	limit    int           // max requests per window
@@ -22,8 +22,8 @@ type visitor struct {
 }
 
 // NewRateLimiter creates a new in-memory rate limiter
-func NewRateLimiter(limit int, window time.Duration) *rateLimiter {
-	rl := &rateLimiter{
+func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
+	rl := &RateLimiter{
 		visitors: make(map[string]*visitor),
 		limit:    limit,
 		window:   window,
@@ -41,7 +41,7 @@ func NewRateLimiter(limit int, window time.Duration) *rateLimiter {
 }
 
 // cleanup removes expired visitors
-func (rl *rateLimiter) cleanup() {
+func (rl *RateLimiter) cleanup() {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
@@ -54,7 +54,7 @@ func (rl *rateLimiter) cleanup() {
 }
 
 // getVisitor retrieves or creates a visitor entry
-func (rl *rateLimiter) getVisitor(key string) *visitor {
+func (rl *RateLimiter) getVisitor(key string) *visitor {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
@@ -67,7 +67,7 @@ func (rl *rateLimiter) getVisitor(key string) *visitor {
 }
 
 // Limit returns a Gin middleware handler that enforces rate limits
-func (rl *rateLimiter) Limit() gin.HandlerFunc {
+func (rl *RateLimiter) Limit() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		key := c.GetHeader("X-API-Key")
 		if key == "" {
@@ -102,8 +102,28 @@ func (rl *rateLimiter) Limit() gin.HandlerFunc {
 	}
 }
 
+// HandleStatus returns a Gin handler that reports rate limit status for the caller
+func (rl *RateLimiter) HandleStatus() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		key := c.GetHeader("X-API-Key")
+		if key == "" {
+			key = c.ClientIP()
+		}
+
+		remaining, reset := rl.GetStatus(key)
+
+		c.JSON(http.StatusOK, gin.H{
+			"limit":       rl.limit,
+			"remaining":   remaining,
+			"window":      rl.window.String(),
+			"reset_in_s":  int(reset.Seconds()),
+			"identifier":  key,
+		})
+	}
+}
+
 // GetStatus returns remaining requests and time until reset for a given key
-func (rl *rateLimiter) GetStatus(key string) (remaining int, reset time.Duration) {
+func (rl *RateLimiter) GetStatus(key string) (remaining int, reset time.Duration) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 

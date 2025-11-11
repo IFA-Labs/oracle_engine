@@ -9,6 +9,7 @@ import (
 	"oracle_engine/internal/config"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -39,10 +40,27 @@ type ExchangeRateResponse struct {
 	ConversionRate     float64 `json:"conversion_rate"`
 }
 
-func (e *ExchangeRateFeed) FetchPrice(ctx context.Context, assetID string, internalAssetId string) (*models.Price, error) {
-	// For BRL/USD, we need to get BRL/USD rate
-	// Since the API format is base/target, we'll use BRL as base and USD as target
-	url := fmt.Sprintf("https://v6.exchangerate-api.com/v6/%s/pair/%s/USD", e.apiKey, assetID)
+func normalizeCurrency(code string) string {
+	if code == "" {
+		return ""
+	}
+	switch strings.ToUpper(code) {
+	case "CNGN":
+		return "NGN"
+	default:
+		return strings.ToUpper(code)
+	}
+}
+
+func (e *ExchangeRateFeed) FetchPrice(ctx context.Context, assetID string, quoteAssetID string, internalAssetId string) (*models.Price, error) {
+	targetCurrency := quoteAssetID
+	if targetCurrency == "" {
+		targetCurrency = "USD"
+	}
+	baseCurrency := normalizeCurrency(assetID)
+	targetCurrency = normalizeCurrency(targetCurrency)
+
+	url := fmt.Sprintf("https://v6.exchangerate-api.com/v6/%s/pair/%s/%s", e.apiKey, baseCurrency, targetCurrency)
 
 	logging.Logger.Info("Fetching ExchangeRate", zap.String("url", url))
 

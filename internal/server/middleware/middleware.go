@@ -115,8 +115,9 @@ func RequestLogger() gin.HandlerFunc {
 	})
 }
 
-// RateLimiter would implement rate limiting (placeholder)
-func RateLimiter() gin.HandlerFunc {
+// PlaceholderLimiter is a legacy placeholder to maintain compatibility where the old
+// function-based rate limiter was referenced. Prefer using the RateLimiter struct.
+func PlaceholderLimiter() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// TODO: Implement rate limiting logic
 		c.Next()

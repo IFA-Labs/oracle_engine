@@ -9,6 +9,7 @@ import (
 	"oracle_engine/internal/datastream"
 	"oracle_engine/internal/datastream/currencylayer"
 	"oracle_engine/internal/datastream/exchangerate"
+	"oracle_engine/internal/datastream/exchangeratehost"
 	"oracle_engine/internal/datastream/fixer"
 	"oracle_engine/internal/datastream/monierate"
 	"oracle_engine/internal/datastream/moralis"
@@ -48,6 +49,7 @@ func main() {
 	ds.RegisterFeed(pyth.New())
 	ds.RegisterFeed(monierate.New(cfg))
 	ds.RegisterFeed(exchangerate.New(cfg))
+	ds.RegisterFeed(exchangeratehost.New(cfg))
 	ds.RegisterFeed(twelvedata.New(cfg))
 	ds.RegisterFeed(fixer.New(cfg))
 	ds.RegisterFeed(currencylayer.New(cfg))

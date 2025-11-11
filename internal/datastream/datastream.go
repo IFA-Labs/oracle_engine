@@ -43,14 +43,20 @@ func (ds *DataStream) Start(ctx context.Context, cfg *config.Config) {
 				continue
 			}
 			go ds.runFeed(
-				ctx, asset.Name, feedAssetID, feedInternalAssetID,
-				feed, time.Duration(feedCfg.Interval)*time.Second)
+				ctx,
+				asset.Name,
+				feedAssetID,
+				feedCfg.QuoteAssetID,
+				feedInternalAssetID,
+				feed,
+				time.Duration(feedCfg.Interval)*time.Second,
+			)
 		}
 	}
 }
 
-func (ds *DataStream) runFeed(ctx context.Context, asset string, assetId string,
-	internalAssetIdentity string, feed PriceFeed, interval time.Duration) {
+func (ds *DataStream) runFeed(ctx context.Context, asset string, baseAssetID string,
+	quoteAssetID string, internalAssetIdentity string, feed PriceFeed, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -59,7 +65,7 @@ func (ds *DataStream) runFeed(ctx context.Context, asset string, assetId string,
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			price, err := feed.FetchPrice(ctx, assetId, internalAssetIdentity)
+			price, err := feed.FetchPrice(ctx, baseAssetID, quoteAssetID, internalAssetIdentity)
 			if err != nil || price.InternalAssetIdentity == "" {
 				logging.Logger.Error("Fetch failed",
 					zap.String("feed", feed.Name()),

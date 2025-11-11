@@ -19,8 +19,6 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 // @title Oracle Engine API
@@ -54,6 +52,7 @@ type GetUSDToNGNRateResponse struct {
 	Timestamp string  `json:"timestamp"`
 	Source    string  `json:"source"`
 }
+
 type API struct {
 	priceService        services.PriceService
 	issuanceService     services.IssuanceService
@@ -65,10 +64,16 @@ type API struct {
 	priceStreamer       *PriceStreamer
 	cfg                 *config.Config
 	authMiddleware      *middleware.AuthMiddleware
+	rateLimiter         *middleware.RateLimiter // ✅ stays here
 }
 
-func NewAPI(priceService services.PriceService, issuanceService services.IssuanceService, dashboardService services.DashboardService, priceCh chan models.Issuance, cfg *config.Config) *API {
-
+func NewAPI(
+	priceService services.PriceService,
+	issuanceService services.IssuanceService,
+	dashboardService services.DashboardService,
+	priceCh chan models.Issuance,
+	cfg *config.Config,
+) *API {
 	priceStreamer := NewPriceStreamer(priceCh, logging.Logger)
 	priceStreamer.Start()
 
@@ -79,7 +84,7 @@ func NewAPI(priceService services.PriceService, issuanceService services.Issuanc
 	emailService := utils.NewEmailService()
 	invoiceService := services.NewInvoiceService(dashboardService.GetRepository(), emailService)
 	schedulerService := services.NewSchedulerService(dashboardService.GetRepository(), emailService)
-	
+
 	// Initialize exchange rate service
 	exchangeRateService := services.NewExchangeRateService(cfg.ApiKeys["ifalabs"], cfg.IFALabsAPIURL)
 
@@ -92,43 +97,50 @@ func NewAPI(priceService services.PriceService, issuanceService services.Issuanc
 		exchangeRateService: exchangeRateService,
 		priceCh:             priceCh,
 		priceStreamer:       priceStreamer,
-		cfg:              cfg,
-		authMiddleware:   authMiddleware,
+		cfg:                 cfg,
+		authMiddleware:      authMiddleware,
+		rateLimiter:         middleware.NewRateLimiter(60, time.Minute), // ✅ only here
 	}
 }
 
+
 func (a *API) RegisterRoutes(router *gin.Engine) {
-    // CORS
-    router.Use(func(c *gin.Context) {
-        c.Header("Access-Control-Allow-Origin", "*") // Replace with frontend domain in prod
-        c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-        c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
-        c.Header("Access-Control-Expose-Headers", "X-Total-Count")
+	// --- CORS
+	router.Use(func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+		c.Header("Access-Control-Expose-Headers", "X-Total-Count")
 
-        if c.Request.Method == "OPTIONS" {
-            c.AbortWithStatus(204)
-            return
-        }
-        c.Next()
-    })
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+		c.Next()
+	})
 
-    // Initialize rate limiter
-    rateLimiter := middleware.NewRateLimiter(60, time.Minute)
+	// --- Public route
+	router.GET("/api/assets", a.handleAssets)
 
-    // Protected routes
-    router.GET("/api/prices/last",
-        rateLimiter.Limit(),
-        a.authMiddleware.APIKeyAuth(),
-        a.handleLastPrice,
-    )
-    router.GET("/api/prices/stream",
-        rateLimiter.Limit(),
-        a.authMiddleware.APIKeyAuth(),
-        a.priceStreamer.HandleStream,
-    )
+	// --- Protected, rate-limited routes
+	router.GET(
+		"/api/prices/last",
+		a.rateLimiter.Limit(),            // ✅ use the struct field, not a new one
+		a.authMiddleware.APIKeyAuth(),
+		a.handleLastPrice,
+	)
 
-    // (Other routes)
+	router.GET(
+		"/api/prices/stream",
+		a.rateLimiter.Limit(),
+		a.authMiddleware.APIKeyAuth(),
+		a.priceStreamer.HandleStream,
+	)
+
+	// --- Optional rate-limit inspection
+	router.GET("/api/limit/check", a.rateLimiter.HandleStatus())
 }
+
 
 // @Summary User Sign Up a company
 // @Description Create a new company profile and user account

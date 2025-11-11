@@ -12,6 +12,7 @@ type FeedConfig struct {
 	Name     string `mapstructure:"name"`     // e.g., "binance"
 	Interval int    `mapstructure:"interval"` // Seconds (e.g., 5)
 	AssetID  string `mapstructure:"assetID"`
+	QuoteAssetID string `mapstructure:"quoteAssetID"`
 }
 
 type ContractConfig struct {

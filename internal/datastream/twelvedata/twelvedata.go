@@ -10,6 +10,7 @@ import (
 	"oracle_engine/internal/config"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -33,11 +34,29 @@ type TwelveDataResponse struct {
 	Timestamp int64   `json:"timestamp"`
 }
 
-func (t *TwelveDataFeed) FetchPrice(ctx context.Context, assetID string, internalAssetId string) (*models.Price, error) {
-	// Use the provided assetID directly for the API call
+func normalizeCurrency(code string) string {
+	if code == "" {
+		return ""
+	}
+	switch strings.ToUpper(code) {
+	case "CNGN":
+		return "NGN"
+	default:
+		return strings.ToUpper(code)
+	}
+}
+
+func (t *TwelveDataFeed) FetchPrice(ctx context.Context, assetID string, quoteAssetID string, internalAssetId string) (*models.Price, error) {
+	symbol := assetID
+	if quoteAssetID != "" {
+		base := normalizeCurrency(assetID)
+		quote := normalizeCurrency(quoteAssetID)
+		symbol = fmt.Sprintf("%s/%s", base, quote)
+	}
+
 	baseURL := "https://api.twelvedata.com/exchange_rate"
 	params := url.Values{}
-	params.Add("symbol", assetID)
+	params.Add("symbol", symbol)
 	params.Add("apikey", t.apiKey)
 
 	fullURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())

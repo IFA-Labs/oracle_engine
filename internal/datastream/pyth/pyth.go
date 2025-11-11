@@ -38,7 +38,7 @@ type PythPrice struct {
 	} `json:"price"`
 }
 
-func (p *PythFeed) FetchPrice(ctx context.Context, assetID string, internalAssetId string) (*models.Price, error) {
+func (p *PythFeed) FetchPrice(ctx context.Context, assetID string, _ string, internalAssetId string) (*models.Price, error) {
 	baseURL := "https://hermes.pyth.network/v2/updates/price/latest"
 	params := url.Values{}
 	params.Add("ids[]", assetID)

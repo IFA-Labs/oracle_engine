@@ -41,18 +41,39 @@ type MonieratePrice struct {
 	Timestamp  int64   `json:"timestamp"`
 }
 
-func (p *MonierateFeed) FetchPrice(ctx context.Context, assetID string, internalAssetId string) (*models.Price, error) {
+func normalizeCurrencyCode(code string) string {
+	if code == "" {
+		return ""
+	}
+	switch strings.ToUpper(code) {
+	case "CNGN":
+		return "NGN"
+	default:
+		return strings.ToUpper(code)
+	}
+}
+
+func (p *MonierateFeed) FetchPrice(ctx context.Context, assetID string, quoteAssetID string, internalAssetId string) (*models.Price, error) {
+	if quoteAssetID == "" {
+		quoteAssetID = "USD"
+	}
+
+	fromCurrency := normalizeCurrencyCode(quoteAssetID)
+	toCurrency := normalizeCurrencyCode(assetID)
 
 	url := "https://api.monierate.com/core/rates/convert.json"
 	method := "POST"
 
 	payload := strings.NewReader(fmt.Sprintf(`{
-    "from": "USD",
+    "from": "%s",
     "to": "%s",
     "amount": 1,
 	"market": "parallel"
-	}`, assetID))
-	logging.Logger.Info("Monierate payload", zap.String("payload", assetID))
+	}`, fromCurrency, toCurrency))
+	logging.Logger.Info("Monierate payload",
+		zap.String("from", fromCurrency),
+		zap.String("to", toCurrency),
+	)
 
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, payload)
