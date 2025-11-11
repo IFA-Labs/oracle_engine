@@ -242,11 +242,33 @@ func (s *dashboardService) ValidateAPIKey(ctx context.Context, apiKey string) (*
 }
 
 func (s *dashboardService) CheckAPILimits(ctx context.Context, keyData *models.APIKey) (rateLimited, usageLimitExceeded bool, err error) {
-	// Get subscription plan details from config
-	plan, exists := s.config.SubscriptionPlans[keyData.SubscriptionPlan]
-	if !exists {
-		return false, false, fmt.Errorf("unknown subscription plan: %s", keyData.SubscriptionPlan)
+	// Normalize subscription plan and fall back to free tier when missing/unknown
+	planKey := strings.TrimSpace(keyData.SubscriptionPlan)
+	if planKey == "" {
+		planKey = "free"
 	}
+	planKey = strings.ToLower(planKey)
+
+	plan, exists := s.config.SubscriptionPlans[planKey]
+	if !exists {
+		logging.Logger.Warn("Unknown subscription plan for API key; defaulting to free tier",
+			zap.String("plan", keyData.SubscriptionPlan),
+			zap.String("normalized_plan", planKey),
+			zap.String("key_id", keyData.ID),
+			zap.String("profile_id", keyData.ProfileID),
+		)
+
+		var ok bool
+		plan, ok = s.config.SubscriptionPlans["free"]
+		if !ok {
+			return false, false, fmt.Errorf("unknown subscription plan: %s", keyData.SubscriptionPlan)
+		}
+
+		planKey = "free"
+	}
+
+	// Persist normalized plan for downstream consumers
+	keyData.SubscriptionPlan = planKey
 
 	// Check rate limit (hourly and daily limits)
 	if plan.RateLimitPerHour > 0 || plan.RateLimitPerDay > 0 {

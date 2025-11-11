@@ -125,6 +125,9 @@ func (a *API) RegisterRoutes(router *gin.Engine) {
 	router.GET("/api/status/services", a.handleServiceStatus)
 	router.GET("/api/status/incidents", a.handleIncidents)
 	router.GET("/api/status/uptime", a.handleUptimeStats)
+	// Dashboard auth routes
+	router.POST("/api/dashboard/signup", a.handleSignUp)
+	router.POST("/api/dashboard/login", a.authMiddleware.OptionalAPIKeyAuth(), a.handleLogin)
 
 	// --- Protected, rate-limited routes
 	router.GET(
