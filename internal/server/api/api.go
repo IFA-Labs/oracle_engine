@@ -125,9 +125,58 @@ func (a *API) RegisterRoutes(router *gin.Engine) {
 	router.GET("/api/status/services", a.handleServiceStatus)
 	router.GET("/api/status/incidents", a.handleIncidents)
 	router.GET("/api/status/uptime", a.handleUptimeStats)
-	// Dashboard auth routes
+
+	// Dashboard auth & registration routes
 	router.POST("/api/dashboard/signup", a.handleSignUp)
-	router.POST("/api/dashboard/login", a.authMiddleware.OptionalAPIKeyAuth(), a.handleLogin)
+	router.POST("/api/dashboard/login", a.handleLogin)
+	router.POST("/api/auth/register/initiate", a.handleInitiateRegistration)
+	router.GET("/api/auth/register/verify", a.handleVerifyToken)
+	router.POST("/api/auth/register/complete", a.handleCompleteRegistration)
+	router.POST("/api/auth/password/forgot", a.handleForgotPassword)
+	router.GET("/api/auth/password/verify", a.handleVerifyResetToken)
+	router.POST("/api/auth/password/reset", a.handleResetPassword)
+
+	// Dashboard protected routes (JWT required)
+	dashboard := router.Group("/api/dashboard", a.authMiddleware.JWTAuth())
+	{
+		dashboard.POST("/:id/change-password", a.handleChangePassword)
+		dashboard.GET("/:id/profile", a.handleGetProfile)
+		dashboard.PUT("/:id/profile", a.handleUpdateProfile)
+		dashboard.DELETE("/:id/profile", a.handleDeleteProfile)
+		dashboard.DELETE("/:id", a.handleDeleteProfile)
+		dashboard.PUT("/:id/subscription", a.handleUpdateSubscription)
+		dashboard.POST("/:id/api-keys", a.handleCreateAPIKey)
+		dashboard.GET("/:id/api-keys", a.handleGetAPIKeys)
+		dashboard.GET("/:id/api-keys/:key_id", a.handleGetAPIKeyByID)
+		dashboard.DELETE("/:id/api-keys/:key_id", a.handleDeleteAPIKey)
+		dashboard.POST("/:id/payment", a.handleCreatePayment)
+		dashboard.GET("/:id/payment/history", a.handleGetPaymentHistory)
+		dashboard.GET("/:id/usage", a.handleGetAPIUsage)
+		dashboard.GET("/:id/invoices", a.handleGetInvoices)
+		dashboard.GET("/:id/invoices/:invoice_id", a.handleGetInvoiceByID)
+		dashboard.GET("/:id/invoices/number/:invoice_number", a.handleGetInvoiceByNumber)
+		dashboard.PUT("/:id/invoices/:invoice_id/status", a.handleUpdateInvoiceStatus)
+	}
+
+	// Payments & subscriptions (JWT required)
+	router.POST("/api/subscriptions/activate", a.authMiddleware.JWTAuth(), a.handleActivateSubscription)
+	router.POST("/api/payments/store", a.authMiddleware.JWTAuth(), a.handleStorePayment)
+	router.PUT("/api/payments/:id/status", a.authMiddleware.JWTAuth(), a.handleUpdatePaymentStatus)
+
+	// Admin invoice routes (JWT required)
+	admin := router.Group("/api/admin", a.authMiddleware.JWTAuth())
+	{
+		admin.GET("/invoices", a.handleAdminGetInvoices)
+		admin.GET("/invoices/:invoice_id", a.handleAdminGetInvoiceByID)
+		admin.PUT("/invoices/:invoice_id/status", a.handleAdminUpdateInvoiceStatus)
+		admin.POST("/invoices/generate", a.handleAdminGenerateInvoices)
+		admin.GET("/invoices/job/status", a.handleAdminGetJobStatus)
+	}
+
+	// General info endpoints
+	router.GET("/api/subscription/plans", a.handleGetSubscriptionPlans)
+	router.GET("/api/exchange-rates/usd-ngn", a.handleGetUSDToNGNRate)
+	router.GET("/api/exchange-rates", a.handleGetExchangeRate)
 
 	// --- Protected, rate-limited routes
 	router.GET(
