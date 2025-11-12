@@ -178,17 +178,15 @@ func (a *API) RegisterRoutes(router *gin.Engine) {
 	router.GET("/api/exchange-rates/usd-ngn", a.handleGetUSDToNGNRate)
 	router.GET("/api/exchange-rates", a.handleGetExchangeRate)
 
-	// --- Protected, rate-limited routes
+	// --- Protected routes (rate limiting handled by subscription tier in APIKeyAuth)
 	router.GET(
 		"/api/prices/last",
-		a.rateLimiter.Limit(),            // ✅ use the struct field, not a new one
 		a.authMiddleware.APIKeyAuth(),
 		a.handleLastPrice,
 	)
 
 	router.GET(
 		"/api/prices/stream",
-		a.rateLimiter.Limit(),
 		a.authMiddleware.APIKeyAuth(),
 		a.priceStreamer.HandleStream,
 	)
