@@ -99,7 +99,7 @@ func NewAPI(
 		priceStreamer:       priceStreamer,
 		cfg:                 cfg,
 		authMiddleware:      authMiddleware,
-		rateLimiter:         middleware.NewRateLimiter(60, time.Minute), // ✅ only here
+		rateLimiter:         middleware.NewRateLimiter(0, time.Minute), // 0 = unlimited
 	}
 }
 

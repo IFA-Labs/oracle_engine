@@ -242,16 +242,16 @@ func (s *dashboardService) ValidateAPIKey(ctx context.Context, apiKey string) (*
 }
 
 func (s *dashboardService) CheckAPILimits(ctx context.Context, keyData *models.APIKey) (rateLimited, usageLimitExceeded bool, err error) {
-	// Normalize subscription plan and fall back to free tier when missing/unknown
+	// Normalize subscription plan and fall back to enterprise tier (unlimited) when missing/unknown
 	planKey := strings.TrimSpace(keyData.SubscriptionPlan)
 	if planKey == "" {
-		planKey = "free"
+		planKey = "enterprise"
 	}
 	planKey = strings.ToLower(planKey)
 
 	plan, exists := s.config.SubscriptionPlans[planKey]
 	if !exists {
-		logging.Logger.Warn("Unknown subscription plan for API key; defaulting to free tier",
+		logging.Logger.Warn("Unknown subscription plan for API key; defaulting to enterprise tier (unlimited)",
 			zap.String("plan", keyData.SubscriptionPlan),
 			zap.String("normalized_plan", planKey),
 			zap.String("key_id", keyData.ID),
@@ -259,12 +259,16 @@ func (s *dashboardService) CheckAPILimits(ctx context.Context, keyData *models.A
 		)
 
 		var ok bool
-		plan, ok = s.config.SubscriptionPlans["free"]
+		plan, ok = s.config.SubscriptionPlans["enterprise"]
 		if !ok {
-			return false, false, fmt.Errorf("unknown subscription plan: %s", keyData.SubscriptionPlan)
+			// If enterprise doesn't exist, allow unlimited (no rate limiting)
+			logging.Logger.Warn("Enterprise plan not found in config; allowing unlimited access",
+				zap.String("key_id", keyData.ID),
+			)
+			return false, false, nil
 		}
 
-		planKey = "free"
+		planKey = "enterprise"
 	}
 
 	// Persist normalized plan for downstream consumers

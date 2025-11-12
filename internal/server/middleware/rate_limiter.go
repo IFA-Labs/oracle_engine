@@ -85,7 +85,8 @@ func (rl *RateLimiter) Limit() gin.HandlerFunc {
 		}
 
 		v.count++
-		if v.count > rl.limit {
+		// If limit is 0 or negative, allow unlimited requests
+		if rl.limit > 0 && v.count > rl.limit {
 			resetIn := rl.window - time.Since(v.lastSeen)
 			c.JSON(http.StatusTooManyRequests, gin.H{
 				"error":       "Rate limit exceeded. Please try again later.",
