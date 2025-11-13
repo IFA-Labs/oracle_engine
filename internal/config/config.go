@@ -91,7 +91,6 @@ func Load() *Config {
 		"exchangerate":  os.Getenv("EXCHANGERATE_API_KEY"),
 		"twelvedata":    os.Getenv("TWELVEDATA_API_KEY"),
 		"fixer":         os.Getenv("FIXER_API_KEY"),
-		"currencylayer": os.Getenv("CURRENCYLAYER_API_KEY"),
 		"moralis":       os.Getenv("MORALIS_API_KEY"),
 		"ifalabs":       os.Getenv("IFA_LABS_API_KEY"),
 	})

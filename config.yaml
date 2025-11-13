@@ -38,9 +38,6 @@ assets:
       - name: "twelvedata"
         interval: 64
         assetID: "NGN"
-      - name: "currencylayer"
-        interval: 66
-        assetID: "NGN"
   - name: "BRZ/USD"
     internalAssetIdentity: "0xBRZ"
     feeds:
@@ -53,18 +50,11 @@ assets:
       - name: "fixer"
         interval: 60
         assetID: "BRL"
-      - name: "currencylayer"
-        interval: 60
-        assetID: "BRL"
   - name: "CNY/CNGN"
     internalAssetIdentity: "0xCNYCNGN"
     feeds:
       - name: "exchangerate"
         interval: 75
-        assetID: "CNY"
-        quoteAssetID: "NGN"
-      - name: "currencylayer"
-        interval: 80
         assetID: "CNY"
         quoteAssetID: "NGN"
       - name: "twelvedata"

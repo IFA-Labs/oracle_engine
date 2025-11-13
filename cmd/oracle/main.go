@@ -7,7 +7,6 @@ import (
 	"oracle_engine/internal/consensus"
 	"oracle_engine/internal/database/timescale"
 	"oracle_engine/internal/datastream"
-	"oracle_engine/internal/datastream/currencylayer"
 	"oracle_engine/internal/datastream/exchangerate"
 	"oracle_engine/internal/datastream/exchangeratehost"
 	"oracle_engine/internal/datastream/fixer"
@@ -52,7 +51,6 @@ func main() {
 	ds.RegisterFeed(exchangeratehost.New(cfg))
 	ds.RegisterFeed(twelvedata.New(cfg))
 	ds.RegisterFeed(fixer.New(cfg))
-	ds.RegisterFeed(currencylayer.New(cfg))
 	ds.RegisterFeed(moralis.New(cfg))
 
 	// Start Data Stream
