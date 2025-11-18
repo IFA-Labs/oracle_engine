@@ -54,12 +54,19 @@ func normalizeCurrencyCode(code string) string {
 }
 
 func (p *MonierateFeed) FetchPrice(ctx context.Context, assetID string, quoteAssetID string, internalAssetId string) (*models.Price, error) {
-	if quoteAssetID == "" {
-		quoteAssetID = "USD"
+	// When quoteAssetID is provided, we want to convert FROM assetID TO quoteAssetID
+	// For example, ETH/cNGN means: 1 ETH = X cNGN, so convert FROM ETH TO cNGN
+	var fromCurrency, toCurrency string
+	
+	if quoteAssetID != "" {
+		// Convert from base asset to quote asset (e.g., ETH to cNGN)
+		fromCurrency = normalizeCurrencyCode(assetID)
+		toCurrency = normalizeCurrencyCode(quoteAssetID)
+	} else {
+		// Default to USD if no quote asset specified
+		fromCurrency = normalizeCurrencyCode("USD")
+		toCurrency = normalizeCurrencyCode(assetID)
 	}
-
-	fromCurrency := normalizeCurrencyCode(quoteAssetID)
-	toCurrency := normalizeCurrencyCode(assetID)
 
 	url := "https://api.monierate.com/core/rates/convert.json"
 	method := "POST"
@@ -111,9 +118,15 @@ func (p *MonierateFeed) FetchPrice(ctx context.Context, assetID string, quoteAss
 		return nil, fmt.Errorf("monierate response missing data")
 	}
 
-	usdToAsset := monierateResponse.Data.Conversion
-	logging.Logger.Info("Monierate response", zap.Float64("usdToAsset", usdToAsset))
-	priceF32 := 1 / usdToAsset
+	// Conversion is the amount of toCurrency you get for 1 fromCurrency
+	// For ETH/cNGN: Conversion = amount of cNGN for 1 ETH
+	conversion := monierateResponse.Data.Conversion
+	logging.Logger.Info("Monierate response", 
+		zap.Float64("conversion", conversion),
+		zap.String("from", fromCurrency),
+		zap.String("to", toCurrency),
+	)
+	priceF32 := float32(conversion)
 
 	// Pyth api call
 	return &models.Price{

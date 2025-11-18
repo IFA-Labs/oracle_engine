@@ -5,68 +5,34 @@ aggr_dev_perc: 0.2
 SERVER_PORT: 8000
 RELAY_TIME_THRESHOLD: 10 # minutes
 assets:
-  - name: "USDT/USD"
-    internalAssetIdentity: "0xUSDT"
+  - name: "ETH/cNGN"
+    internalAssetIdentity: "0xETH"
     settings:
       TTL: 14400 # 4 hours (4 * 3600 seconds)
       devPerc: 0.05
     feeds:
-      - name: "pyth"
-        interval: 10
-        assetID: "2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b"
-      - name: "moralis"
-        interval: 30
-        assetID: "0xdAC17F958D2ee523a2206206994597C13D831ec7"
-  - name: "ETH/USD"
-    internalAssetIdentity: "0xETH"
-    feeds:
-      - name: "pyth"
-        interval: 5
-        assetID: "ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace"
-      - name: "coingecko"
-        interval: 276
-        assetID: "2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b"
-  - name: "CNGN/USD"
-    internalAssetIdentity: "0xCNGN"
+      - name: "monierate"
+        interval: 60
+        assetID: "ETH"
+        quoteAssetID: "CNGN"
+  - name: "USDC/cNGN"
+    internalAssetIdentity: "0xUSDC"
+    settings:
+      TTL: 14400 # 4 hours (4 * 3600 seconds)
+      devPerc: 0.05
     feeds:
       - name: "monierate"
-        interval: 50
-        assetID: "NGN"
-      - name: "exchangerate"
-        interval: 62
-        assetID: "NGN"
-      - name: "twelvedata"
-        interval: 64
-        assetID: "NGN"
-  - name: "BRZ/USD"
-    internalAssetIdentity: "0xBRZ"
-    feeds:
-      - name: "exchangerate"
         interval: 60
-        assetID: "BRL"
-      - name: "twelvedata"
-        interval: 60
-        assetID: "BRL"
-      - name: "fixer"
-        interval: 60
-        assetID: "BRL"
-  - name: "CNY/CNGN"
+        assetID: "USDC"
+        quoteAssetID: "CNGN"
+  - name: "CNY/cNGN"
     internalAssetIdentity: "0xCNYCNGN"
+    settings:
+      TTL: 14400 # 4 hours (4 * 3600 seconds)
+      devPerc: 0.05
     feeds:
-      - name: "exchangerate"
-        interval: 75
-        assetID: "CNY"
-        quoteAssetID: "NGN"
-      - name: "twelvedata"
-        interval: 90
-        assetID: "CNY"
-        quoteAssetID: "NGN"
-      - name: "fixer"
-        interval: 95
-        assetID: "CNY"
-        quoteAssetID: "NGN"
-      - name: "exchangeratehost"
-        interval: 85
+      - name: "monierate"
+        interval: 60
         assetID: "CNY"
         quoteAssetID: "CNGN"
 contracts:

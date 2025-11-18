@@ -7,13 +7,7 @@ import (
 	"oracle_engine/internal/consensus"
 	"oracle_engine/internal/database/timescale"
 	"oracle_engine/internal/datastream"
-	"oracle_engine/internal/datastream/exchangerate"
-	"oracle_engine/internal/datastream/exchangeratehost"
-	"oracle_engine/internal/datastream/fixer"
 	"oracle_engine/internal/datastream/monierate"
-	"oracle_engine/internal/datastream/moralis"
-	"oracle_engine/internal/datastream/pyth"
-	"oracle_engine/internal/datastream/twelvedata"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
 	"oracle_engine/internal/pricepool"
@@ -45,13 +39,7 @@ func main() {
 	ds := datastream.New(cfg, priceCh, db)
 
 	// Register feeds
-	ds.RegisterFeed(pyth.New())
 	ds.RegisterFeed(monierate.New(cfg))
-	ds.RegisterFeed(exchangerate.New(cfg))
-	ds.RegisterFeed(exchangeratehost.New(cfg))
-	ds.RegisterFeed(twelvedata.New(cfg))
-	ds.RegisterFeed(fixer.New(cfg))
-	ds.RegisterFeed(moralis.New(cfg))
 
 	// Start Data Stream
 	go ds.Start(ctx, cfg)
