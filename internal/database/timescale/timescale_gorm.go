@@ -91,25 +91,54 @@ func (t *TimescaleGORM) SavePrice(ctx context.Context, price models.UnifiedPrice
 }
 
 // GetLastPrice retrieves the most recent price for an asset
+// Falls back to raw prices if no aggregated price exists
 func (t *TimescaleGORM) GetLastPrice(ctx context.Context, assetID string) (*models.UnifiedPrice, error) {
+	// First, try to get aggregated price from prices table
 	var price Price
 	err := t.db.WithContext(ctx).
 		Where("asset_id = ?", assetID).
 		Order("timestamp DESC").
 		First(&price).Error
 
+	if err == nil {
+		// Found aggregated price, return it
+		return &models.UnifiedPrice{
+			ID:        price.ID.String(),
+			AssetID:   price.AssetID,
+			Value:     price.Value,
+			Expo:      price.Expo,
+			Timestamp: price.Timestamp,
+			Source:    price.Source,
+			ReqHash:   price.ReqHash,
+		}, nil
+	}
+
+	// If not found, check if it's a "record not found" error
+	// If it's another error, return it
+	if err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	// Fall back to raw prices table
+	var rawPrice RawPrice
+	err = t.db.WithContext(ctx).
+		Where("asset_id = ?", assetID).
+		Order("timestamp DESC").
+		First(&rawPrice).Error
+
 	if err != nil {
 		return nil, err
 	}
 
+	// Convert raw price to UnifiedPrice format
 	return &models.UnifiedPrice{
-		ID:        price.ID.String(),
-		AssetID:   price.AssetID,
-		Value:     price.Value,
-		Expo:      price.Expo,
-		Timestamp: price.Timestamp,
-		Source:    price.Source,
-		ReqHash:   price.ReqHash,
+		ID:        rawPrice.ID,
+		AssetID:   rawPrice.AssetID,
+		Value:     rawPrice.Value,
+		Expo:      rawPrice.Expo,
+		Timestamp: rawPrice.Timestamp,
+		Source:    rawPrice.Source,
+		ReqHash:   "", // Raw prices don't have req_hash
 	}, nil
 }
 
