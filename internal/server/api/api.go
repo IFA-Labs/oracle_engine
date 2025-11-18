@@ -927,7 +927,13 @@ func (a *API) handleLastPrice(c *gin.Context) {
 	// Single asset case
 	price, err := a.priceService.GetLastPrice(c.Request.Context(), asset)
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Failed to fetch last price"})
+		// Check if it's a "not found" error
+		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "no rows") {
+			c.JSON(404, gin.H{"error": "Price not found for asset", "asset": asset})
+			return
+		}
+		zap.L().Error("Failed to fetch last price", zap.String("asset", asset), zap.Error(err))
+		c.JSON(500, gin.H{"error": "Failed to fetch last price", "details": err.Error()})
 		return
 	}
 

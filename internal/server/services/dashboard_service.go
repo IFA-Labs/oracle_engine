@@ -249,6 +249,15 @@ func (s *dashboardService) CheckAPILimits(ctx context.Context, keyData *models.A
 	}
 	planKey = strings.ToLower(planKey)
 
+	// Map legacy plan names to new plan names
+	planMapping := map[string]string{
+		"professional": "professional_monthly", // Default professional to monthly
+		"developer":    "developer_monthly",    // Default developer to monthly
+	}
+	if mappedPlan, ok := planMapping[planKey]; ok {
+		planKey = mappedPlan
+	}
+
 	plan, exists := s.config.SubscriptionPlans[planKey]
 	if !exists {
 		logging.Logger.Warn("Unknown subscription plan for API key; defaulting to enterprise tier (unlimited)",
