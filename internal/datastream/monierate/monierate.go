@@ -126,13 +126,12 @@ func (p *MonierateFeed) FetchPrice(ctx context.Context, assetID string, quoteAss
 		zap.String("from", fromCurrency),
 		zap.String("to", toCurrency),
 	)
-	priceF32 := float32(conversion)
 
 	// Pyth api call
 	return &models.Price{
 		ID:                    uuid.NewString(),
 		ReqURL:                url,
-		Value:                 priceF32,
+		Value:                 conversion,
 		Asset:                 assetID,
 		Expo:                  int8(0),
 		Timestamp:             time.Now(),
