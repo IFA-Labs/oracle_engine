@@ -10,7 +10,6 @@ import (
 	"oracle_engine/internal/config"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -43,31 +42,14 @@ type FixerResponse struct {
 	Result     float64 `json:"result"`
 }
 
-func normalizeCurrency(code string) string {
-	if code == "" {
-		return ""
-	}
-	switch strings.ToUpper(code) {
-	case "CNGN":
-		return "NGN"
-	default:
-		return strings.ToUpper(code)
-	}
-}
-
-func (f *FixerFeed) FetchPrice(ctx context.Context, assetID string, quoteAssetID string, internalAssetId string) (*models.Price, error) {
-	targetCurrency := quoteAssetID
-	if targetCurrency == "" {
-		targetCurrency = "USD"
-	}
-	baseCurrency := normalizeCurrency(assetID)
-	targetCurrency = normalizeCurrency(targetCurrency)
-
+func (f *FixerFeed) FetchPrice(ctx context.Context, assetID string, internalAssetId string) (*models.Price, error) {
+	// Parse assetID to get base and quote currencies
+	// Expected format: "BASE/QUOTE" (e.g., "BRL/USD")
 	baseURL := "https://data.fixer.io/api/convert"
 	params := url.Values{}
 	params.Add("access_key", f.apiKey)
-	params.Add("from", baseCurrency)
-	params.Add("to", targetCurrency)
+	params.Add("from", assetID)
+	params.Add("to", "USD")
 	params.Add("amount", "1")
 
 	fullURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())

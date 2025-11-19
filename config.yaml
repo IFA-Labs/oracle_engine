@@ -5,36 +5,57 @@ aggr_dev_perc: 0.2
 SERVER_PORT: 8000
 RELAY_TIME_THRESHOLD: 10 # minutes
 assets:
-  - name: "ETH/cNGN"
+  - name: "USDT/USD"
+    internalAssetIdentity: "0xUSDT"
+    settings:
+      TTL: 14400 # 4 hours (4 * 3600 seconds)
+      devPerc: 0.05
+    feeds:
+      - name: "pyth"
+        interval: 10
+        assetID: "2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b"
+      - name: "moralis"
+        interval: 30
+        assetID: "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+  - name: "ETH/USD"
     internalAssetIdentity: "0xETH"
-    settings:
-      TTL: 14400 # 4 hours (4 * 3600 seconds)
-      devPerc: 0.05
+    feeds:
+      - name: "pyth"
+        interval: 5
+        assetID: "ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace"
+      - name: "coingecko"
+        interval: 276
+        assetID: "2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b"
+  - name: "CNGN/USD"
+    internalAssetIdentity: "0xCNGN"
     feeds:
       - name: "monierate"
-        interval: 60
-        assetID: "ETH"
-        quoteAssetID: "CNGN"
-  - name: "USDC/cNGN"
-    internalAssetIdentity: "0xUSDC"
-    settings:
-      TTL: 14400 # 4 hours (4 * 3600 seconds)
-      devPerc: 0.05
+        interval: 50
+        assetID: "NGN"
+      - name: "exchangerate"
+        interval: 62
+        assetID: "NGN"
+      - name: "twelvedata"
+        interval: 64
+        assetID: "NGN"
+      - name: "currencylayer"
+        interval: 66
+        assetID: "NGN"
+  - name: "BRZ/USD"
+    internalAssetIdentity: "0xBRZ"
     feeds:
-      - name: "monierate"
+      - name: "exchangerate"
         interval: 60
-        assetID: "USDC"
-        quoteAssetID: "CNGN"
-  - name: "CNY/cNGN"
-    internalAssetIdentity: "0xCNYCNGN"
-    settings:
-      TTL: 14400 # 4 hours (4 * 3600 seconds)
-      devPerc: 0.05
-    feeds:
-      - name: "monierate"
+        assetID: "BRL"
+      - name: "twelvedata"
         interval: 60
-        assetID: "CNY"
-        quoteAssetID: "CNGN"
+        assetID: "BRL"
+      - name: "fixer"
+        interval: 60
+        assetID: "BRL"
+      - name: "currencylayer"
+        interval: 60
+        assetID: "BRL"
 contracts:
   - address: "0xC08CbF336cC0D7163Ef260bF69137c8cA7AF2F3a"
     abi: "0x"
@@ -47,10 +68,9 @@ subscription_plans:
   free:
     name: "Free tier"
     price: 0
-    subscription_duration: 0    # Lifetime (no expiration)
     api_requests: 1000
-    rate_limit_per_hour: 10     # 10 requests per hour
-    rate_limit_per_day: 100     # 100 requests per day
+    rate_limit_per_hour: 10   # 10 requests per hour
+    rate_limit_per_day: 100   # 100 requests per day
     data_access: "Two feeds"
     custom_pairs: 0
     request_cost: 0
@@ -58,27 +78,12 @@ subscription_plans:
     historical_data: false
     private_data: false
   
-  developer_monthly:
+  developer:
     name: "Developer tier"
-    price: 50                   # Monthly price
-    subscription_duration: 30   # 30 days (monthly)
+    price: 50
     api_requests: 10000
-    rate_limit_per_hour: 100    # 100 requests per hour
-    rate_limit_per_day: 1000    # 1000 requests per day
-    data_access: "All feeds"
-    custom_pairs: 0
-    request_cost: 0.0005
-    support: "24/7 support"
-    historical_data: false
-    private_data: false
-  
-  developer_annual:
-    name: "Developer tier"
-    price: 500                  # Annual price ($500/year = ~$42/month)
-    subscription_duration: 365  # 365 days (yearly)
-    api_requests: 10000
-    rate_limit_per_hour: 100    # 100 requests per hour
-    rate_limit_per_day: 1000    # 1000 requests per day
+    rate_limit_per_hour: 100  # 100 requests per hour
+    rate_limit_per_day: 1000  # 1000 requests per day
     data_access: "All feeds"
     custom_pairs: 0
     request_cost: 0.0005
@@ -86,27 +91,12 @@ subscription_plans:
     historical_data: false
     private_data: false
     
-  professional_monthly:
+  professional:
     name: "Professional tier"
-    price: 100                  # Monthly price
-    subscription_duration: 30   # 30 days (monthly)
+    price: 100
     api_requests: 100000
-    rate_limit_per_hour: 500    # 500 requests per hour
-    rate_limit_per_day: 10000   # 10,000 requests per day
-    data_access: "All feeds + Historical data"
-    custom_pairs: 3
-    request_cost: 0.0002
-    support: "24/7 support"
-    historical_data: true
-    private_data: false
-  
-  professional_annual:
-    name: "Professional tier"
-    price: 1000                 # Annual price ($1000/year = ~$83/month)
-    subscription_duration: 365  # 365 days (yearly)
-    api_requests: 100000
-    rate_limit_per_hour: 500    # 500 requests per hour
-    rate_limit_per_day: 10000   # 10,000 requests per day
+    rate_limit_per_hour: 500   # 500 requests per hour
+    rate_limit_per_day: 10000  # 10,000 requests per day
     data_access: "All feeds + Historical data"
     custom_pairs: 3
     request_cost: 0.0002
@@ -116,20 +106,13 @@ subscription_plans:
     
   enterprise:
     name: "Enterprise tier"
-    price: 0                    # Custom pricing
-    subscription_duration: 365  # 365 days (yearly)
-    api_requests: 0             # Unlimited
-    rate_limit_per_hour: 0      # Unlimited
-    rate_limit_per_day: 0       # Unlimited
+    price: 0 # Custom pricing
+    api_requests: 0 # Unlimited
+    rate_limit_per_hour: 0 # Unlimited
+    rate_limit_per_day: 0  # Unlimited
     data_access: "All feeds + Private"
-    custom_pairs: -1            # Custom/unlimited
-    request_cost: 0             # Custom
+    custom_pairs: -1 # Custom/unlimited
+    request_cost: 0 # Custom
     support: "24/7 support + dedicated engineer"
     historical_data: true
     private_data: true
-database:
-  host: timescale-dev
-  port: 5432
-  user: user
-  password: pass
-  dbname: oracle

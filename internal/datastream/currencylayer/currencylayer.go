@@ -10,7 +10,6 @@ import (
 	"oracle_engine/internal/config"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -44,31 +43,14 @@ type CurrencyLayerResponse struct {
 	Result     float64 `json:"result"`
 }
 
-func normalizeCurrency(code string) string {
-	if code == "" {
-		return ""
-	}
-	switch strings.ToUpper(code) {
-	case "CNGN":
-		return "NGN"
-	default:
-		return strings.ToUpper(code)
-	}
-}
-
-func (c *CurrencyLayerFeed) FetchPrice(ctx context.Context, assetID string, quoteAssetID string, internalAssetId string) (*models.Price, error) {
-	targetCurrency := quoteAssetID
-	if targetCurrency == "" {
-		targetCurrency = "USD"
-	}
-	baseCurrency := normalizeCurrency(assetID)
-	targetCurrency = normalizeCurrency(targetCurrency)
-
+func (c *CurrencyLayerFeed) FetchPrice(ctx context.Context, assetID string, internalAssetId string) (*models.Price, error) {
+	// For asset/USD, we need to get asset/USD rate
+	// Since CurrencyLayer API uses from/to format, we'll convert 1 asset to USD
 	baseURL := "https://api.currencylayer.com/convert"
 	params := url.Values{}
 	params.Add("access_key", c.apiKey)
-	params.Add("from", baseCurrency)
-	params.Add("to", targetCurrency)
+	params.Add("from", assetID)
+	params.Add("to", "USD")
 	params.Add("amount", "1")
 
 	fullURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())

@@ -45,14 +45,9 @@ func (t *TimescaleGORM) Initialize(ctx context.Context) error {
 		return err
 	}
 
-	// Handle migration for removing key_encrypted column
-	if err := t.handleKeyEncryptedMigration(); err != nil {
-		logging.Logger.Warn("Failed to handle key_encrypted migration", zap.Error(err))
-	}
-
 	// Auto-migrate tables
 	if err := t.db.AutoMigrate(&Price{}, &RawPrice{}, &PriceRawPriceLink{}, &Issuance{},
-		&CompanyProfile{}, &DashboardAPIKey{}, &DashboardAPIKeyUsage{}, &DashboardPayment{}, &VerificationToken{}, &Invoice{}); err != nil {
+		&CompanyProfile{}, &DashboardAPIKey{}, &DashboardAPIKeyUsage{}, &DashboardPayment{}); err != nil {
 		return err
 	}
 
@@ -64,11 +59,6 @@ func (t *TimescaleGORM) Initialize(ctx context.Context) error {
 	// Create additional indexes
 	if err := t.db.Exec("CREATE INDEX IF NOT EXISTS idx_prices_id ON prices(id)").Error; err != nil {
 		logging.Logger.Warn("Failed to create index", zap.Error(err))
-	}
-
-	// Create invoice table indexes and constraints
-	if err := t.setupInvoiceTable(); err != nil {
-		logging.Logger.Warn("Failed to setup invoice table", zap.Error(err))
 	}
 
 	logging.Logger.Info("Database tables initialized with GORM")
@@ -91,54 +81,25 @@ func (t *TimescaleGORM) SavePrice(ctx context.Context, price models.UnifiedPrice
 }
 
 // GetLastPrice retrieves the most recent price for an asset
-// Falls back to raw prices if no aggregated price exists
 func (t *TimescaleGORM) GetLastPrice(ctx context.Context, assetID string) (*models.UnifiedPrice, error) {
-	// First, try to get aggregated price from prices table
 	var price Price
 	err := t.db.WithContext(ctx).
 		Where("asset_id = ?", assetID).
 		Order("timestamp DESC").
 		First(&price).Error
 
-	if err == nil {
-		// Found aggregated price, return it
-		return &models.UnifiedPrice{
-			ID:        price.ID.String(),
-			AssetID:   price.AssetID,
-			Value:     price.Value,
-			Expo:      price.Expo,
-			Timestamp: price.Timestamp,
-			Source:    price.Source,
-			ReqHash:   price.ReqHash,
-		}, nil
-	}
-
-	// If not found, check if it's a "record not found" error
-	// If it's another error, return it
-	if err != gorm.ErrRecordNotFound {
-		return nil, err
-	}
-
-	// Fall back to raw prices table
-	var rawPrice RawPrice
-	err = t.db.WithContext(ctx).
-		Where("asset_id = ?", assetID).
-		Order("timestamp DESC").
-		First(&rawPrice).Error
-
 	if err != nil {
 		return nil, err
 	}
 
-	// Convert raw price to UnifiedPrice format
 	return &models.UnifiedPrice{
-		ID:        rawPrice.ID,
-		AssetID:   rawPrice.AssetID,
-		Value:     rawPrice.Value,
-		Expo:      rawPrice.Expo,
-		Timestamp: rawPrice.Timestamp,
-		Source:    rawPrice.Source,
-		ReqHash:   "", // Raw prices don't have req_hash
+		ID:        price.ID.String(),
+		AssetID:   price.AssetID,
+		Value:     price.Value,
+		Expo:      price.Expo,
+		Timestamp: price.Timestamp,
+		Source:    price.Source,
+		ReqHash:   price.ReqHash,
 	}, nil
 }
 
@@ -458,133 +419,4 @@ func (t *TimescaleGORM) Close() error {
 // GetDB returns the GORM database instance for dashboard operations
 func (t *TimescaleGORM) GetDB() *gorm.DB {
 	return t.db
-}
-
-// handleKeyEncryptedMigration removes the key_encrypted column if it exists and ensures key_plain exists
-func (t *TimescaleGORM) handleKeyEncryptedMigration() error {
-	// Check if the key_encrypted column exists
-	var encryptedColumnExists bool
-	err := t.db.Raw(`
-		SELECT EXISTS (
-			SELECT 1 
-			FROM information_schema.columns 
-			WHERE table_name = 'dashboard_api_keys' 
-			AND column_name = 'key_encrypted'
-		)
-	`).Scan(&encryptedColumnExists).Error
-	
-	if err != nil {
-		return fmt.Errorf("failed to check for key_encrypted column: %w", err)
-	}
-	
-	// If the key_encrypted column exists, drop it
-	if encryptedColumnExists {
-		logging.Logger.Info("Dropping key_encrypted column from dashboard_api_keys table")
-		if err := t.db.Exec("ALTER TABLE dashboard_api_keys DROP COLUMN IF EXISTS key_encrypted").Error; err != nil {
-			return fmt.Errorf("failed to drop key_encrypted column: %w", err)
-		}
-		logging.Logger.Info("Successfully dropped key_encrypted column")
-	}
-	
-	// Check if the key_plain column exists
-	var plainColumnExists bool
-	err = t.db.Raw(`
-		SELECT EXISTS (
-			SELECT 1 
-			FROM information_schema.columns 
-			WHERE table_name = 'dashboard_api_keys' 
-			AND column_name = 'key_plain'
-		)
-	`).Scan(&plainColumnExists).Error
-	
-	if err != nil {
-		return fmt.Errorf("failed to check for key_plain column: %w", err)
-	}
-	
-	// If the key_plain column doesn't exist, add it
-	if !plainColumnExists {
-		logging.Logger.Info("Adding key_plain column to dashboard_api_keys table")
-		if err := t.db.Exec("ALTER TABLE dashboard_api_keys ADD COLUMN key_plain text NOT NULL DEFAULT ''").Error; err != nil {
-			return fmt.Errorf("failed to add key_plain column: %w", err)
-		}
-		logging.Logger.Info("Successfully added key_plain column")
-		
-		// Copy existing key_hash values to key_plain for existing records
-		logging.Logger.Info("Copying existing key_hash values to key_plain")
-		if err := t.db.Exec("UPDATE dashboard_api_keys SET key_plain = key_hash WHERE key_plain = ''").Error; err != nil {
-			logging.Logger.Warn("Failed to copy key_hash to key_plain", zap.Error(err))
-		}
-	}
-	
-	return nil
-}
-
-// setupInvoiceTable creates indexes and constraints for the invoice table
-func (t *TimescaleGORM) setupInvoiceTable() error {
-	// Add foreign key constraint to company_profiles table
-	if err := t.db.Exec(`
-		DO $$ 
-		BEGIN
-			IF NOT EXISTS (
-				SELECT 1 FROM information_schema.table_constraints 
-				WHERE constraint_name = 'fk_invoices_account_id' 
-				AND table_name = 'invoices'
-			) THEN
-				ALTER TABLE invoices 
-				ADD CONSTRAINT fk_invoices_account_id 
-				FOREIGN KEY (account_id) REFERENCES company_profiles(id) ON DELETE CASCADE;
-			END IF;
-		END $$;
-	`).Error; err != nil {
-		logging.Logger.Warn("Failed to add foreign key constraint for invoices", zap.Error(err))
-	}
-
-	// Add unique index to prevent duplicate invoices per account per due date
-	if err := t.db.Exec(`
-		CREATE UNIQUE INDEX IF NOT EXISTS idx_invoices_account_due_date 
-		ON invoices (account_id, due_date) 
-		WHERE status != 'void';
-	`).Error; err != nil {
-		logging.Logger.Warn("Failed to create unique index for invoices", zap.Error(err))
-	}
-
-	// Add performance indexes
-	indexes := []string{
-		"CREATE INDEX IF NOT EXISTS idx_invoices_account_id ON invoices (account_id);",
-		"CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices (status);",
-		"CREATE INDEX IF NOT EXISTS idx_invoices_due_date ON invoices (due_date);",
-		"CREATE INDEX IF NOT EXISTS idx_invoices_issued_at ON invoices (issued_at);",
-	}
-
-	for _, indexSQL := range indexes {
-		if err := t.db.Exec(indexSQL).Error; err != nil {
-			logging.Logger.Warn("Failed to create invoice index", zap.Error(err), zap.String("sql", indexSQL))
-		}
-	}
-
-	// Add trigger to automatically update updated_at timestamp
-	if err := t.db.Exec(`
-		CREATE OR REPLACE FUNCTION update_invoices_updated_at()
-		RETURNS TRIGGER AS $$
-		BEGIN
-			NEW.updated_at = NOW();
-			RETURN NEW;
-		END;
-		$$ LANGUAGE plpgsql;
-	`).Error; err != nil {
-		logging.Logger.Warn("Failed to create update_invoices_updated_at function", zap.Error(err))
-	}
-
-	if err := t.db.Exec(`
-		DROP TRIGGER IF EXISTS trigger_update_invoices_updated_at ON invoices;
-		CREATE TRIGGER trigger_update_invoices_updated_at
-			BEFORE UPDATE ON invoices
-			FOR EACH ROW
-			EXECUTE FUNCTION update_invoices_updated_at();
-	`).Error; err != nil {
-		logging.Logger.Warn("Failed to create invoice update trigger", zap.Error(err))
-	}
-
-	logging.Logger.Info("Invoice table setup completed")
-	return nil
 }

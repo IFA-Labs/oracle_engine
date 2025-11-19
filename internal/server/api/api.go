@@ -2,23 +2,24 @@ package api
 
 import (
 	"fmt"
-	"net/http"
 	"oracle_engine/internal/config"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
 	"oracle_engine/internal/server/middleware"
 	"oracle_engine/internal/server/services"
 	"oracle_engine/internal/utils"
-	"strings"
-	"time"
 
 	"go.uber.org/zap"
 
 	_ "oracle_engine/docs"
 
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 // @title Oracle Engine API
@@ -43,71 +44,39 @@ import (
 // @in header
 // @name X-API-Key
 // @description API key for accessing Oracle Engine endpoints.
-
-// Exchange rate response types
-type GetUSDToNGNRateResponse struct {
-	Rate      float64 `json:"rate"`
-	From      string  `json:"from"`
-	To        string  `json:"to"`
-	Timestamp string  `json:"timestamp"`
-	Source    string  `json:"source"`
-}
-
 type API struct {
-	priceService        services.PriceService
-	issuanceService     services.IssuanceService
-	dashboardService    services.DashboardService
-	invoiceService      services.InvoiceService
-	schedulerService    services.SchedulerService
-	exchangeRateService *services.ExchangeRateService
-	priceCh             chan models.Issuance
-	priceStreamer       *PriceStreamer
-	cfg                 *config.Config
-	authMiddleware      *middleware.AuthMiddleware
-	rateLimiter         *middleware.RateLimiter // ✅ stays here
+	priceService     services.PriceService
+	issuanceService  services.IssuanceService
+	dashboardService services.DashboardService
+	priceCh          chan models.Issuance
+	priceStreamer    *PriceStreamer
+	cfg              *config.Config
+	authMiddleware   *middleware.AuthMiddleware
 }
 
-func NewAPI(
-	priceService services.PriceService,
-	issuanceService services.IssuanceService,
-	dashboardService services.DashboardService,
-	priceCh chan models.Issuance,
-	cfg *config.Config,
-) *API {
+func NewAPI(priceService services.PriceService, issuanceService services.IssuanceService, dashboardService services.DashboardService, priceCh chan models.Issuance, cfg *config.Config) *API {
+
 	priceStreamer := NewPriceStreamer(priceCh, logging.Logger)
 	priceStreamer.Start()
 
 	// Initialize auth middleware
 	authMiddleware := middleware.NewAuthMiddleware(cfg.JWTSecret, dashboardService)
 
-	// Initialize invoice and scheduler services
-	emailService := utils.NewEmailService()
-	invoiceService := services.NewInvoiceService(dashboardService.GetRepository(), emailService)
-	schedulerService := services.NewSchedulerService(dashboardService.GetRepository(), emailService)
-
-	// Initialize exchange rate service
-	exchangeRateService := services.NewExchangeRateService(cfg.ApiKeys["ifalabs"], cfg.IFALabsAPIURL)
-
 	return &API{
-		priceService:        priceService,
-		issuanceService:     issuanceService,
-		dashboardService:    dashboardService,
-		invoiceService:      invoiceService,
-		schedulerService:    schedulerService,
-		exchangeRateService: exchangeRateService,
-		priceCh:             priceCh,
-		priceStreamer:       priceStreamer,
-		cfg:                 cfg,
-		authMiddleware:      authMiddleware,
-		rateLimiter:         middleware.NewRateLimiter(0, time.Minute), // 0 = unlimited
+		priceService:     priceService,
+		issuanceService:  issuanceService,
+		dashboardService: dashboardService,
+		priceCh:          priceCh,
+		priceStreamer:    priceStreamer,
+		cfg:              cfg,
+		authMiddleware:   authMiddleware,
 	}
 }
 
-
 func (a *API) RegisterRoutes(router *gin.Engine) {
-	// --- CORS
+	// Add CORS middleware for production frontend access
 	router.Use(func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Origin", "*") // In production, replace with your frontend domain
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
 		c.Header("Access-Control-Expose-Headers", "X-Total-Count")
@@ -116,85 +85,54 @@ func (a *API) RegisterRoutes(router *gin.Engine) {
 			c.AbortWithStatus(204)
 			return
 		}
+
 		c.Next()
 	})
 
-	// --- Public route
-	router.GET("/api/assets", a.handleAssets)
-	router.GET("/api/status", a.handleSystemStatus)
-	router.GET("/api/status/services", a.handleServiceStatus)
-	router.GET("/api/status/incidents", a.handleIncidents)
-	router.GET("/api/status/uptime", a.handleUptimeStats)
+	// Protected price endpoints (require API key for subscription management and rate limiting)
+	router.GET("/api/prices/last", a.authMiddleware.APIKeyAuth(), a.handleLastPrice)
+	router.GET("/api/prices/stream", a.authMiddleware.APIKeyAuth(), a.priceStreamer.HandleStream)
 
-	// Dashboard auth & registration routes
+	// Protected asset endpoints
+	router.GET("/api/assets", a.authMiddleware.APIKeyAuth(), a.handleAssets)
+
+	// Protected price audit endpoints
+	router.GET("/api/prices/:id/audit", a.authMiddleware.APIKeyAuth(), a.handleAuditPrice)
+	router.GET("/api/prices/audit", a.authMiddleware.APIKeyAuth(), a.handleAuditPriceRange)
+
+	// Protected issuance endpoints
+	router.GET("/api/issuances/:id", a.authMiddleware.APIKeyAuth(), a.handleIssuance)
+
+	// Public authentication endpoints (no API key required)
 	router.POST("/api/dashboard/signup", a.handleSignUp)
 	router.POST("/api/dashboard/login", a.handleLogin)
-	router.POST("/api/auth/register/initiate", a.handleInitiateRegistration)
-	router.GET("/api/auth/register/verify", a.handleVerifyToken)
-	router.POST("/api/auth/register/complete", a.handleCompleteRegistration)
-	router.POST("/api/auth/password/forgot", a.handleForgotPassword)
-	router.GET("/api/auth/password/verify", a.handleVerifyResetToken)
-	router.POST("/api/auth/password/reset", a.handleResetPassword)
 
-	// Dashboard protected routes (JWT required)
-	dashboard := router.Group("/api/dashboard", a.authMiddleware.JWTAuth())
+	// Protected dashboard endpoints (require JWT authentication)
+	protected := router.Group("/api/dashboard")
+	protected.Use(a.authMiddleware.JWTAuth(), a.authMiddleware.ValidateProfileOwnership())
 	{
-		dashboard.POST("/:id/change-password", a.handleChangePassword)
-		dashboard.GET("/:id/profile", a.handleGetProfile)
-		dashboard.PUT("/:id/profile", a.handleUpdateProfile)
-		dashboard.DELETE("/:id/profile", a.handleDeleteProfile)
-		dashboard.DELETE("/:id", a.handleDeleteProfile)
-		dashboard.PUT("/:id/subscription", a.handleUpdateSubscription)
-		dashboard.POST("/:id/api-keys", a.handleCreateAPIKey)
-		dashboard.GET("/:id/api-keys", a.handleGetAPIKeys)
-		dashboard.GET("/:id/api-keys/:key_id", a.handleGetAPIKeyByID)
-		dashboard.DELETE("/:id/api-keys/:key_id", a.handleDeleteAPIKey)
-		dashboard.POST("/:id/payment", a.handleCreatePayment)
-		dashboard.GET("/:id/payment/history", a.handleGetPaymentHistory)
-		dashboard.GET("/:id/usage", a.handleGetAPIUsage)
-		dashboard.GET("/:id/invoices", a.handleGetInvoices)
-		dashboard.GET("/:id/invoices/:invoice_id", a.handleGetInvoiceByID)
-		dashboard.GET("/:id/invoices/number/:invoice_number", a.handleGetInvoiceByNumber)
-		dashboard.PUT("/:id/invoices/:invoice_id/status", a.handleUpdateInvoiceStatus)
+		protected.GET("/:id/profile", a.handleGetProfile)
+		protected.PUT("/:id/profile", a.handleUpdateProfile)
+		protected.POST("/:id/api-keys", a.handleCreateAPIKey)
+		protected.GET("/:id/api-keys", a.handleGetAPIKeys)
+		protected.DELETE("/:id/api-keys/:key_id", a.handleDeleteAPIKey)
+		protected.GET("/:id/usage", a.handleGetAPIUsage) // Get API usage statistics
+		// Payment endpoints (placeholder)
+		protected.POST("/:id/payment", a.handleCreatePayment)
+		protected.GET("/:id/payment/history", a.handleGetPaymentHistory)
 	}
 
-	// Payments & subscriptions (JWT required)
-	router.POST("/api/subscriptions/activate", a.authMiddleware.JWTAuth(), a.handleActivateSubscription)
-	router.POST("/api/payments/store", a.authMiddleware.JWTAuth(), a.handleStorePayment)
-	router.PUT("/api/payments/:id/status", a.authMiddleware.JWTAuth(), a.handleUpdatePaymentStatus)
-
-	// Admin invoice routes (JWT required)
-	admin := router.Group("/api/admin", a.authMiddleware.JWTAuth())
-	{
-		admin.GET("/invoices", a.handleAdminGetInvoices)
-		admin.GET("/invoices/:invoice_id", a.handleAdminGetInvoiceByID)
-		admin.PUT("/invoices/:invoice_id/status", a.handleAdminUpdateInvoiceStatus)
-		admin.POST("/invoices/generate", a.handleAdminGenerateInvoices)
-		admin.GET("/invoices/job/status", a.handleAdminGetJobStatus)
-	}
-
-	// General info endpoints
+	// Public subscription plan information (no auth required)
 	router.GET("/api/subscription/plans", a.handleGetSubscriptionPlans)
-	router.GET("/api/exchange-rates/usd-ngn", a.handleGetUSDToNGNRate)
-	router.GET("/api/exchange-rates", a.handleGetExchangeRate)
 
-	// --- Protected routes (rate limiting handled by subscription tier in APIKeyAuth)
-	router.GET(
-		"/api/prices/last",
-		a.authMiddleware.APIKeyAuth(),
-		a.handleLastPrice,
-	)
+	url := ginSwagger.URL("/swagger/doc.json")
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
 
-	router.GET(
-		"/api/prices/stream",
-		a.authMiddleware.APIKeyAuth(),
-		a.priceStreamer.HandleStream,
-	)
-
-	// --- Optional rate-limit inspection
-	router.GET("/api/limit/check", a.rateLimiter.HandleStatus())
+	// Health check endpoint
+	router.GET("/api/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok"})
+	})
 }
-
 
 // @Summary User Sign Up a company
 // @Description Create a new company profile and user account
@@ -246,261 +184,6 @@ func (a *API) handleLogin(c *gin.Context) {
 	}
 
 	c.JSON(200, response)
-}
-
-// @Summary Initiate Email Verification Registration
-// @Description Send verification email to start the registration process
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body models.InitiateRegistrationRequest true "Initiate registration request"
-// @Success 200 {object} models.InitiateRegistrationResponse
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /auth/register/initiate [post]
-func (a *API) handleInitiateRegistration(c *gin.Context) {
-	var req models.InitiateRegistrationRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
-		return
-	}
-
-	response, err := a.dashboardService.InitiateRegistration(c.Request.Context(), &req)
-	if err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(200, response)
-}
-
-// @Summary Verify Email Token
-// @Description Verify if an email verification token is valid
-// @Tags auth
-// @Produce json
-// @Param token query string true "Verification token"
-// @Success 200 {object} models.VerifyTokenResponse
-// @Failure 400 {object} map[string]string
-// @Router /auth/register/verify [get]
-func (a *API) handleVerifyToken(c *gin.Context) {
-	token := c.Query("token")
-	if token == "" {
-		c.JSON(400, gin.H{"error": "Token is required"})
-		return
-	}
-
-	response, err := a.dashboardService.VerifyToken(c.Request.Context(), token)
-	if err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(200, response)
-}
-
-// @Summary Complete Registration
-// @Description Complete user registration after email verification
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body models.CompleteRegistrationRequest true "Complete registration request"
-// @Success 200 {object} models.CompleteRegistrationResponse
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /auth/register/complete [post]
-func (a *API) handleCompleteRegistration(c *gin.Context) {
-	var req models.CompleteRegistrationRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
-		return
-	}
-
-	response, err := a.dashboardService.CompleteRegistration(c.Request.Context(), &req)
-	if err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(200, response)
-}
-
-// @Summary Initiate Password Reset
-// @Description Send password reset email to user
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body models.ForgotPasswordRequest true "Forgot Password Request"
-// @Success 200 {object} models.ForgotPasswordResponse
-// @Failure 400 {object} map[string]string
-// @Router /api/auth/password/forgot [post]
-func (a *API) handleForgotPassword(c *gin.Context) {
-	var req models.ForgotPasswordRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
-		return
-	}
-
-	response, err := a.dashboardService.InitiatePasswordReset(c.Request.Context(), &req)
-	if err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(200, response)
-}
-
-// @Summary Verify Password Reset Token
-// @Description Check if password reset token is valid
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param token query string true "Reset Token"
-// @Success 200 {object} models.VerifyResetTokenResponse
-// @Router /api/auth/password/verify [get]
-func (a *API) handleVerifyResetToken(c *gin.Context) {
-	token := c.Query("token")
-	if token == "" {
-		c.JSON(400, gin.H{"error": "Token is required"})
-		return
-	}
-
-	response, err := a.dashboardService.VerifyResetToken(c.Request.Context(), token)
-	if err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(200, response)
-}
-
-// @Summary Reset Password
-// @Description Reset user password with valid token
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body models.ResetPasswordRequest true "Reset Password Request"
-// @Success 200 {object} models.ResetPasswordResponse
-// @Failure 400 {object} map[string]string
-// @Router /api/auth/password/reset [post]
-func (a *API) handleResetPassword(c *gin.Context) {
-	var req models.ResetPasswordRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
-		return
-	}
-
-	response, err := a.dashboardService.ResetPassword(c.Request.Context(), &req)
-	if err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(200, response)
-}
-
-// @Summary Change Password
-// @Description Change user password (requires current password)
-// @Tags dashboard
-// @Security BearerAuth
-// @Accept json
-// @Produce json
-// @Param id path string true "User ID"
-// @Param request body models.ChangePasswordRequest true "Change Password Request"
-// @Success 200 {object} models.ChangePasswordResponse
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Router /api/dashboard/{id}/change-password [post]
-func (a *API) handleChangePassword(c *gin.Context) {
-	id := c.Param("id")
-	
-	var req models.ChangePasswordRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
-		return
-	}
-
-	response, err := a.dashboardService.ChangePassword(c.Request.Context(), id, &req)
-	if err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(200, response)
-}
-
-// @Summary Activate Subscription
-// @Description Activate user subscription after payment confirmation
-// @Tags subscriptions
-// @Accept json
-// @Produce json
-// @Param request body models.ActivateSubscriptionRequest true "Activation Request"
-// @Success 200 {object} models.ActivateSubscriptionResponse
-// @Failure 400 {object} map[string]string
-// @Router /api/subscriptions/activate [post]
-func (a *API) handleActivateSubscription(c *gin.Context) {
-	var req models.ActivateSubscriptionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
-		return
-	}
-
-	response, err := a.dashboardService.ActivateSubscription(c.Request.Context(), &req)
-	if err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(200, response)
-}
-
-// @Summary Store Payment
-// @Description Store NOWPayments transaction
-// @Tags payments
-// @Accept json
-// @Produce json
-// @Param request body models.StorePaymentRequest true "Payment Data"
-// @Success 200 {object} models.PaymentStorageResponse
-// @Failure 400 {object} map[string]string
-// @Router /api/payments/store [post]
-func (a *API) handleStorePayment(c *gin.Context) {
-	var req models.StorePaymentRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
-		return
-	}
-
-	response, err := a.dashboardService.StoreNOWPayment(c.Request.Context(), &req)
-	if err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(200, response)
-}
-
-// @Summary Update Payment Status
-// @Description Update payment status
-// @Tags payments
-// @Accept json
-// @Produce json
-// @Param id path string true "Payment ID"
-// @Param request body models.UpdatePaymentStatusRequest true "Status Update"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} map[string]string
-// @Router /api/payments/{id}/status [put]
-func (a *API) handleUpdatePaymentStatus(c *gin.Context) {
-	var req models.UpdatePaymentStatusRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
-		return
-	}
-
-	if err := a.dashboardService.UpdatePaymentStatus(c.Request.Context(), &req); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(200, gin.H{"message": "Payment status updated successfully"})
 }
 
 // @Summary Get User Profile
@@ -561,86 +244,6 @@ func (a *API) handleUpdateProfile(c *gin.Context) {
 	profile, err := a.dashboardService.UpdateProfile(c.Request.Context(), id, &req)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Failed to update profile: " + err.Error()})
-		return
-	}
-
-	c.JSON(200, profile)
-}
-
-// @Summary Delete User Account
-// @Description Permanently delete a user account and all associated data
-// @Tags dashboard
-// @Security BearerAuth
-// @Param id path string true "Profile ID"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 403 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /dashboard/{id}/profile [delete]
-// @Router /dashboard/{id} [delete]
-func (a *API) handleDeleteProfile(c *gin.Context) {
-	id := c.Param("id")
-	if id == "" {
-		c.JSON(400, gin.H{"error": "Profile ID required"})
-		return
-	}
-
-	if err := a.dashboardService.DeleteProfile(c.Request.Context(), id); err != nil {
-		c.JSON(500, gin.H{"error": "Failed to delete account: " + err.Error()})
-		return
-	}
-
-	c.JSON(200, gin.H{
-		"message": "Account deleted successfully",
-		"id":      id,
-	})
-}
-
-// @Summary Update Subscription Plan
-// @Description Update user's subscription plan
-// @Tags dashboard
-// @Security BearerAuth
-// @Accept json
-// @Produce json
-// @Param id path string true "Profile ID"
-// @Param request body models.UpdateSubscriptionRequest true "Update subscription request"
-// @Success 200 {object} models.CompanyProfile
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 403 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /dashboard/{id}/subscription [put]
-func (a *API) handleUpdateSubscription(c *gin.Context) {
-	id := c.Param("id")
-	if id == "" {
-		c.JSON(400, gin.H{"error": "Profile ID required"})
-		return
-	}
-
-	var req models.UpdateSubscriptionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
-		return
-	}
-
-	// Validate subscription plan
-	validPlans := []string{"free", "developer", "professional", "enterprise"}
-	isValidPlan := false
-	for _, plan := range validPlans {
-		if req.SubscriptionPlan == plan {
-			isValidPlan = true
-			break
-		}
-	}
-	if !isValidPlan {
-		c.JSON(400, gin.H{"error": "Invalid subscription plan. Must be one of: free, developer, professional, enterprise"})
-		return
-	}
-
-	profile, err := a.dashboardService.UpdateSubscription(c.Request.Context(), id, &req)
-	if err != nil {
-		c.JSON(500, gin.H{"error": "Failed to update subscription: " + err.Error()})
 		return
 	}
 
@@ -709,38 +312,6 @@ func (a *API) handleGetAPIKeys(c *gin.Context) {
 	}
 
 	c.JSON(200, apiKeys)
-}
-
-// @Summary Get API Key by ID
-// @Description Get a specific API key by ID
-// @Tags dashboard
-// @Security BearerAuth
-// @Produce json
-// @Param id path string true "Profile ID"
-// @Param key_id path string true "API Key ID"
-// @Success 200 {object} models.APIKey
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 403 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /dashboard/{id}/api-keys/{key_id} [get]
-func (a *API) handleGetAPIKeyByID(c *gin.Context) {
-	id := c.Param("id")
-	keyID := c.Param("key_id")
-
-	if id == "" || keyID == "" {
-		c.JSON(400, gin.H{"error": "Profile ID and Key ID required"})
-		return
-	}
-
-	apiKey, err := a.dashboardService.GetAPIKeyByID(c.Request.Context(), id, keyID)
-	if err != nil {
-		c.JSON(500, gin.H{"error": "Failed to get API key: " + err.Error()})
-		return
-	}
-
-	c.JSON(200, apiKey)
 }
 
 // @Summary Delete API Key
@@ -927,13 +498,7 @@ func (a *API) handleLastPrice(c *gin.Context) {
 	// Single asset case
 	price, err := a.priceService.GetLastPrice(c.Request.Context(), asset)
 	if err != nil {
-		// Check if it's a "not found" error
-		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "no rows") {
-			c.JSON(404, gin.H{"error": "Price not found for asset", "asset": asset})
-			return
-		}
-		zap.L().Error("Failed to fetch last price", zap.String("asset", asset), zap.Error(err))
-		c.JSON(500, gin.H{"error": "Failed to fetch last price", "details": err.Error()})
+		c.JSON(500, gin.H{"error": "Failed to fetch last price"})
 		return
 	}
 
@@ -1192,542 +757,4 @@ func (a *API) handleGetSubscriptionPlans(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"plans": a.cfg.SubscriptionPlans,
 	})
-}
-
-// @Summary Get USD to NGN exchange rate
-// @Description Fetches the current USD to NGN exchange rate from IFA Labs API
-// @Tags exchange-rates
-// @Accept json
-// @Produce json
-// @Success 200 {object} GetUSDToNGNRateResponse
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /exchange-rates/usd-ngn [get]
-func (a *API) handleGetUSDToNGNRate(c *gin.Context) {
-	rate, err := a.exchangeRateService.GetUSDToNGNRate(c.Request.Context())
-	if err != nil {
-		logging.Logger.Error("Failed to get USD to NGN rate", zap.Error(err))
-		c.JSON(500, gin.H{"error": "Failed to fetch exchange rate"})
-		return
-	}
-
-	response := GetUSDToNGNRateResponse{
-		Rate:      rate,
-		From:      "USD",
-		To:        "NGN",
-		Timestamp: "", // Will be filled by the service if needed
-		Source:    "IFA Labs API",
-	}
-
-	c.JSON(200, response)
-}
-
-// @Summary Get exchange rate
-// @Description Fetches exchange rate for supported currency pairs
-// @Tags exchange-rates
-// @Accept json
-// @Produce json
-// @Param from query string true "From currency (e.g., USD)"
-// @Param to query string true "To currency (e.g., NGN)"
-// @Success 200 {object} GetUSDToNGNRateResponse
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /exchange-rates [get]
-func (a *API) handleGetExchangeRate(c *gin.Context) {
-	from := c.Query("from")
-	to := c.Query("to")
-
-	if from == "" || to == "" {
-		c.JSON(400, gin.H{"error": "Both 'from' and 'to' parameters are required"})
-		return
-	}
-
-	rate, err := a.exchangeRateService.GetExchangeRate(c.Request.Context(), from, to)
-	if err != nil {
-		logging.Logger.Error("Failed to get exchange rate",
-			zap.Error(err),
-			zap.String("from", from),
-			zap.String("to", to))
-		c.JSON(500, gin.H{"error": "Failed to fetch exchange rate"})
-		return
-	}
-
-	response := GetUSDToNGNRateResponse{
-		Rate:      rate,
-		From:      from,
-		To:        to,
-		Timestamp: "", // Will be filled by the service if needed
-		Source:    "IFA Labs API",
-	}
-
-	c.JSON(200, response)
-}
-
-// @Summary Get system status
-// @Description Returns overall system status and health information
-// @Tags status
-// @Produce json
-// @Success 200 {object} object
-// @Router /status [get]
-func (a *API) handleSystemStatus(c *gin.Context) {
-	// Check if all critical services are operational
-	overallStatus := "operational"
-	
-	// You can add more sophisticated health checks here
-	// For now, we'll determine status based on recent price data availability
-	
-	c.JSON(200, gin.H{
-		"overallStatus": overallStatus,
-		"lastUpdated":   time.Now().Format(time.RFC3339),
-		"services":      len(a.cfg.Assets),
-		"uptime":        "99.9%", // This could be calculated from actual uptime data
-	})
-}
-
-// @Summary Get service status
-// @Description Returns status of individual Oracle Engine services
-// @Tags status
-// @Produce json
-// @Success 200 {array} object
-// @Router /status/services [get]
-func (a *API) handleServiceStatus(c *gin.Context) {
-	services := make([]gin.H, 0)
-	
-	// Add Oracle Engine core services
-	services = append(services, gin.H{
-		"id":           "oracle-engine",
-		"name":         "Oracle Engine Core",
-		"description":  "Main Oracle Engine service",
-		"status":       "operational",
-		"uptime":       99.9,
-		"responseTime": 45,
-		"icon":         "database",
-	})
-	
-	// Add data source services based on configured feeds
-	feedMap := make(map[string]bool)
-	for _, asset := range a.cfg.Assets {
-		for _, feed := range asset.Feeds {
-			if !feedMap[feed.Name] {
-				feedMap[feed.Name] = true
-				services = append(services, gin.H{
-					"id":           feed.Name,
-					"name":         strings.Title(feed.Name) + " Feed",
-					"description":  "Data source: " + feed.Name,
-					"status":       "operational",
-					"uptime":       98.5 + (float64(len(feed.Name)%3) * 0.5), // Simulate different uptimes
-					"responseTime": 50 + (len(feed.Name)%4)*25, // Simulate different response times
-					"icon":         "activity",
-				})
-			}
-		}
-	}
-	
-	// Add blockchain watcher service
-	services = append(services, gin.H{
-		"id":           "blockchain-watcher",
-		"name":         "Blockchain Watcher",
-		"description":  "Blockchain monitoring service",
-		"status":       "degraded",
-		"uptime":       98.5,
-		"responseTime": 250,
-		"icon":         "zap",
-	})
-	
-	c.JSON(200, services)
-}
-
-// @Summary Get incidents
-// @Description Returns recent system incidents and maintenance events
-// @Tags status
-// @Produce json
-// @Success 200 {array} object
-// @Router /status/incidents [get]
-func (a *API) handleIncidents(c *gin.Context) {
-	incidents := []gin.H{
-		{
-			"id":          1,
-			"service":     "Blockchain Watcher",
-			"title":       "Increased response times detected",
-			"description": "We're experiencing higher than normal response times from our blockchain monitoring service. Our team is investigating.",
-			"status":      "investigating",
-			"severity":    "medium",
-			"createdAt":   time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
-			"updatedAt":   time.Now().Add(-30 * time.Minute).Format(time.RFC3339),
-			"resolvedAt":  nil,
-		},
-		{
-			"id":          2,
-			"service":     "Oracle Engine Core",
-			"title":       "Scheduled maintenance completed",
-			"description": "Routine maintenance has been completed successfully. All services are operating normally.",
-			"status":      "resolved",
-			"severity":    "low",
-			"createdAt":   time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
-			"updatedAt":   time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
-			"resolvedAt":  time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
-		},
-	}
-	
-	c.JSON(200, incidents)
-}
-
-// @Summary Get uptime statistics
-// @Description Returns uptime statistics for different time periods
-// @Tags status
-// @Produce json
-// @Success 200 {object} object
-// @Router /status/uptime [get]
-func (a *API) handleUptimeStats(c *gin.Context) {
-	// In a real implementation, these would be calculated from actual uptime data
-	uptimeStats := gin.H{
-		"last90Days": 99.87,
-		"last30Days": 99.92,
-		"last7Days":  99.98,
-		"last24Hours": 100.00,
-	}
-	
-	c.JSON(200, uptimeStats)
-}
-
-// Invoice handler methods
-
-// @Summary Get user invoices
-// @Description Get all invoices for a specific user account
-// @Tags invoices
-// @Accept json
-// @Produce json
-// @Param id path string true "User ID"
-// @Param page query int false "Page number" default(1)
-// @Param page_size query int false "Page size" default(10)
-// @Security BearerAuth
-// @Success 200 {object} models.InvoiceListResponse
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/dashboard/{id}/invoices [get]
-func (a *API) handleGetInvoices(c *gin.Context) {
-	userID := c.Param("id")
-	
-	// Parse pagination parameters
-	page := 1
-	pageSize := 10
-	
-	if pageStr := c.Query("page"); pageStr != "" {
-		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
-			page = p
-		}
-	}
-	
-	if pageSizeStr := c.Query("page_size"); pageSizeStr != "" {
-		if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 && ps <= 100 {
-			pageSize = ps
-		}
-	}
-	
-	offset := (page - 1) * pageSize
-	
-	response, err := a.invoiceService.GetInvoicesByAccount(c.Request.Context(), userID, pageSize, offset)
-	if err != nil {
-		logging.Logger.Error("Failed to get invoices", zap.Error(err), zap.String("user_id", userID))
-		c.JSON(500, gin.H{"error": "Failed to get invoices"})
-		return
-	}
-	
-	c.JSON(200, response)
-}
-
-// @Summary Get invoice by ID
-// @Description Get a specific invoice by its ID
-// @Tags invoices
-// @Accept json
-// @Produce json
-// @Param id path string true "User ID"
-// @Param invoice_id path string true "Invoice ID"
-// @Security BearerAuth
-// @Success 200 {object} models.Invoice
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/dashboard/{id}/invoices/{invoice_id} [get]
-func (a *API) handleGetInvoiceByID(c *gin.Context) {
-	invoiceID := c.Param("invoice_id")
-	
-	invoice, err := a.invoiceService.GetInvoiceByID(c.Request.Context(), invoiceID)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			c.JSON(404, gin.H{"error": "Invoice not found"})
-			return
-		}
-		logging.Logger.Error("Failed to get invoice", zap.Error(err), zap.String("invoice_id", invoiceID))
-		c.JSON(500, gin.H{"error": "Failed to get invoice"})
-		return
-	}
-	
-	c.JSON(200, invoice)
-}
-
-// @Summary Get invoice by number
-// @Description Get a specific invoice by its invoice number
-// @Tags invoices
-// @Accept json
-// @Produce json
-// @Param id path string true "User ID"
-// @Param invoice_number path string true "Invoice Number"
-// @Security BearerAuth
-// @Success 200 {object} models.Invoice
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/dashboard/{id}/invoices/number/{invoice_number} [get]
-func (a *API) handleGetInvoiceByNumber(c *gin.Context) {
-	invoiceNumber := c.Param("invoice_number")
-	
-	invoice, err := a.invoiceService.GetInvoiceByNumber(c.Request.Context(), invoiceNumber)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			c.JSON(404, gin.H{"error": "Invoice not found"})
-			return
-		}
-		logging.Logger.Error("Failed to get invoice by number", zap.Error(err), zap.String("invoice_number", invoiceNumber))
-		c.JSON(500, gin.H{"error": "Failed to get invoice"})
-		return
-	}
-	
-	c.JSON(200, invoice)
-}
-
-// @Summary Update invoice status
-// @Description Update the status of an invoice for a specific user
-// @Tags invoices
-// @Accept json
-// @Produce json
-// @Param id path string true "User ID"
-// @Param invoice_id path string true "Invoice ID"
-// @Param request body models.UpdateInvoiceStatusRequest true "Update invoice status request"
-// @Security BearerAuth
-// @Success 200 {object} models.Invoice
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 403 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/dashboard/{id}/invoices/{invoice_id}/status [put]
-func (a *API) handleUpdateInvoiceStatus(c *gin.Context) {
-	userID := c.Param("id")
-	invoiceID := c.Param("invoice_id")
-
-	if userID == "" || invoiceID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "User ID and invoice ID are required"})
-		return
-	}
-
-	var req models.UpdateInvoiceStatusRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
-	}
-
-	// Verify the invoice belongs to the user
-	invoice, err := a.invoiceService.GetInvoiceByID(c.Request.Context(), invoiceID)
-	if err != nil {
-		logging.Logger.Error("Failed to get invoice",
-			zap.Error(err),
-			zap.String("user_id", userID),
-			zap.String("invoice_id", invoiceID))
-		c.JSON(http.StatusNotFound, gin.H{"error": "Invoice not found"})
-		return
-	}
-
-	if invoice.AccountID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
-		return
-	}
-
-	// Update invoice status
-	err = a.invoiceService.UpdateInvoiceStatus(c.Request.Context(), invoiceID, &req)
-	if err != nil {
-		logging.Logger.Error("Failed to update invoice status",
-			zap.Error(err),
-			zap.String("invoice_id", invoiceID),
-			zap.String("status", req.Status))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update invoice status"})
-		return
-	}
-
-	// Get updated invoice
-	updatedInvoice, err := a.invoiceService.GetInvoiceByID(c.Request.Context(), invoiceID)
-	if err != nil {
-		logging.Logger.Error("Failed to get updated invoice",
-			zap.Error(err),
-			zap.String("invoice_id", invoiceID))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get updated invoice"})
-		return
-	}
-
-	c.JSON(http.StatusOK, updatedInvoice)
-}
-
-// Admin invoice handler methods
-
-// @Summary Get all invoices (Admin)
-// @Description Get all invoices with pagination (Admin only)
-// @Tags admin
-// @Accept json
-// @Produce json
-// @Param page query int false "Page number" default(1)
-// @Param page_size query int false "Page size" default(10)
-// @Param status query string false "Filter by status"
-// @Security BearerAuth
-// @Success 200 {object} models.InvoiceListResponse
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/admin/invoices [get]
-func (a *API) handleAdminGetInvoices(c *gin.Context) {
-	// Parse pagination parameters
-	page := 1
-	pageSize := 10
-	
-	if pageStr := c.Query("page"); pageStr != "" {
-		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
-			page = p
-		}
-	}
-	
-	if pageSizeStr := c.Query("page_size"); pageSizeStr != "" {
-		if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 && ps <= 100 {
-			pageSize = ps
-		}
-	}
-	
-	offset := (page - 1) * pageSize
-	
-	// Check if filtering by status
-	status := c.Query("status")
-	
-	var response *models.InvoiceListResponse
-	var err error
-	
-	if status != "" {
-		response, err = a.invoiceService.GetInvoicesByStatus(c.Request.Context(), status, pageSize, offset)
-	} else {
-		// For admin, we might want to get all invoices regardless of account
-		// This would require a new repository method
-		c.JSON(500, gin.H{"error": "Admin invoice listing not implemented yet"})
-		return
-	}
-	
-	if err != nil {
-		logging.Logger.Error("Failed to get invoices", zap.Error(err))
-		c.JSON(500, gin.H{"error": "Failed to get invoices"})
-		return
-	}
-	
-	c.JSON(200, response)
-}
-
-// @Summary Get invoice by ID (Admin)
-// @Description Get a specific invoice by its ID (Admin only)
-// @Tags admin
-// @Accept json
-// @Produce json
-// @Param invoice_id path string true "Invoice ID"
-// @Security BearerAuth
-// @Success 200 {object} models.Invoice
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/admin/invoices/{invoice_id} [get]
-func (a *API) handleAdminGetInvoiceByID(c *gin.Context) {
-	invoiceID := c.Param("invoice_id")
-	
-	invoice, err := a.invoiceService.GetInvoiceByID(c.Request.Context(), invoiceID)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			c.JSON(404, gin.H{"error": "Invoice not found"})
-			return
-		}
-		logging.Logger.Error("Failed to get invoice", zap.Error(err), zap.String("invoice_id", invoiceID))
-		c.JSON(500, gin.H{"error": "Failed to get invoice"})
-		return
-	}
-	
-	c.JSON(200, invoice)
-}
-
-// @Summary Update invoice status (Admin)
-// @Description Update the status of an invoice (Admin only)
-// @Tags admin
-// @Accept json
-// @Produce json
-// @Param invoice_id path string true "Invoice ID"
-// @Param request body models.UpdateInvoiceStatusRequest true "Update invoice status request"
-// @Security BearerAuth
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/admin/invoices/{invoice_id}/status [put]
-func (a *API) handleAdminUpdateInvoiceStatus(c *gin.Context) {
-	invoiceID := c.Param("invoice_id")
-	
-	var req models.UpdateInvoiceStatusRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "Invalid request body"})
-		return
-	}
-	
-	err := a.invoiceService.UpdateInvoiceStatus(c.Request.Context(), invoiceID, &req)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			c.JSON(404, gin.H{"error": "Invoice not found"})
-			return
-		}
-		logging.Logger.Error("Failed to update invoice status", zap.Error(err), zap.String("invoice_id", invoiceID))
-		c.JSON(500, gin.H{"error": "Failed to update invoice status"})
-		return
-	}
-	
-	c.JSON(200, gin.H{"message": "Invoice status updated successfully"})
-}
-
-// @Summary Generate invoices (Admin)
-// @Description Manually trigger invoice generation job (Admin only)
-// @Tags admin
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Success 200 {object} models.InvoiceGenerationJob
-// @Failure 401 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/admin/invoices/generate [post]
-func (a *API) handleAdminGenerateInvoices(c *gin.Context) {
-	err := a.schedulerService.RunInvoiceGenerationJob(c.Request.Context())
-	if err != nil {
-		logging.Logger.Error("Failed to run invoice generation job", zap.Error(err))
-		c.JSON(500, gin.H{"error": "Failed to run invoice generation job"})
-		return
-	}
-	
-	c.JSON(200, gin.H{"message": "Invoice generation job started successfully"})
-}
-
-// @Summary Get job status (Admin)
-// @Description Get the status of the invoice generation job (Admin only)
-// @Tags admin
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Success 200 {object} map[string]interface{}
-// @Failure 401 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/admin/invoices/job/status [get]
-func (a *API) handleAdminGetJobStatus(c *gin.Context) {
-	status := a.schedulerService.GetJobStatus()
-	c.JSON(200, status)
 }

@@ -12,7 +12,6 @@ type FeedConfig struct {
 	Name     string `mapstructure:"name"`     // e.g., "binance"
 	Interval int    `mapstructure:"interval"` // Seconds (e.g., 5)
 	AssetID  string `mapstructure:"assetID"`
-	QuoteAssetID string `mapstructure:"quoteAssetID"`
 }
 
 type ContractConfig struct {
@@ -46,18 +45,17 @@ var DefaultAssetSetting = AssetSetting{
 type ApiKey map[string]string
 
 type SubscriptionPlan struct {
-	Name                 string  `mapstructure:"name"`
-	Price                float64 `mapstructure:"price"`                    // Monthly price in USD
-	SubscriptionDuration int     `mapstructure:"subscription_duration"`    // Duration in days (30 = monthly, 365 = yearly, 0 = lifetime)
-	APIRequests          int64   `mapstructure:"api_requests"`             // Monthly API request limit (0 = unlimited)
-	RateLimitPerHour     int     `mapstructure:"rate_limit_per_hour"`      // Requests allowed per hour (0 = unlimited)
-	RateLimitPerDay      int     `mapstructure:"rate_limit_per_day"`       // Requests allowed per day (0 = unlimited)
-	DataAccess           string  `mapstructure:"data_access"`              // Description of data access level
-	CustomPairs          int     `mapstructure:"custom_pairs"`             // Number of custom pairs allowed
-	RequestCost          float64 `mapstructure:"request_cost"`             // Cost per request in USD
-	Support              string  `mapstructure:"support"`                  // Support level description
-	HistoricalData       bool    `mapstructure:"historical_data"`          // Access to historical data
-	PrivateData          bool    `mapstructure:"private_data"`             // Access to private data feeds
+	Name             string  `mapstructure:"name"`
+	Price            float64 `mapstructure:"price"`               // Monthly price in USD
+	APIRequests      int64   `mapstructure:"api_requests"`        // Monthly API request limit (0 = unlimited)
+	RateLimitPerHour int     `mapstructure:"rate_limit_per_hour"` // Requests allowed per hour (0 = unlimited)
+	RateLimitPerDay  int     `mapstructure:"rate_limit_per_day"`  // Requests allowed per day (0 = unlimited)
+	DataAccess       string  `mapstructure:"data_access"`         // Description of data access level
+	CustomPairs      int     `mapstructure:"custom_pairs"`        // Number of custom pairs allowed
+	RequestCost      float64 `mapstructure:"request_cost"`        // Cost per request in USD
+	Support          string  `mapstructure:"support"`             // Support level description
+	HistoricalData   bool    `mapstructure:"historical_data"`     // Access to historical data
+	PrivateData      bool    `mapstructure:"private_data"`        // Access to private data feeds
 }
 
 type Config struct {
@@ -74,7 +72,6 @@ type Config struct {
 	SERVER_PORT          string                      `mapstructure:"server_port"`
 	JWTSecret            string                      `mapstructure:"jwt_secret"`
 	SubscriptionPlans    map[string]SubscriptionPlan `mapstructure:"subscription_plans"`
-	IFALabsAPIURL        string                      `mapstructure:"ifa_labs_api_url"`
 }
 
 func Load() *Config {
@@ -85,10 +82,13 @@ func Load() *Config {
 	viper.SetDefault("price_pool_ttl", 10)
 	viper.SetDefault("aggregator_nodes", 3)
 	viper.SetDefault("consensus_threshold", 0.01)
-	viper.SetDefault("ifa_labs_api_url", os.Getenv("IFA_LABS_API_URL"))
 	viper.SetDefault("api_keys", map[string]string{
-		"monierate": os.Getenv("MONIERATE_API_KEY"),
-		"ifalabs":   os.Getenv("IFA_LABS_API_KEY"),
+		"monierate":     os.Getenv("MONIERATE_API_KEY"),
+		"exchangerate":  os.Getenv("EXCHANGERATE_API_KEY"),
+		"twelvedata":    os.Getenv("TWELVEDATA_API_KEY"),
+		"fixer":         os.Getenv("FIXER_API_KEY"),
+		"currencylayer": os.Getenv("CURRENCYLAYER_API_KEY"),
+		"moralis":       os.Getenv("MORALIS_API_KEY"),
 	})
 	viper.SetDefault("subscription_plans", map[string]SubscriptionPlan{
 		"free": {
@@ -170,7 +170,6 @@ func Load() *Config {
 			cfg.JWTSecret = "your-secret-key-here" // Default secret (not secure for production)
 		}
 	}
-
 
 	return &cfg
 }

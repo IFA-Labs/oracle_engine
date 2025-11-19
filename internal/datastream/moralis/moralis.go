@@ -39,7 +39,7 @@ type MoralisResponse struct {
 	TokenAddress string `json:"tokenAddress"`
 }
 
-func (m *MoralisFeed) FetchPrice(ctx context.Context, assetID string, _ string, internalAssetId string) (*models.Price, error) {
+func (m *MoralisFeed) FetchPrice(ctx context.Context, assetID string, internalAssetId string) (*models.Price, error) {
 	// For ERC20 tokens, we need to get the USD price
 	// The assetID should be the token contract address
 	url := fmt.Sprintf("https://deep-index.moralis.io/api/v2.2/erc20/%s/price", assetID)

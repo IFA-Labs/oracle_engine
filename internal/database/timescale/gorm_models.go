@@ -100,14 +100,11 @@ type CompanyProfile struct {
 	CreatedAt   time.Time `gorm:"type:timestamptz;not null" json:"created_at"`
 	UpdatedAt   time.Time `gorm:"type:timestamptz;not null" json:"updated_at"`
 	// merging user and company profile for now
-	FirstName            string     `gorm:"type:text;not null" json:"first_name"`
-	LastName             string     `gorm:"type:text;not null" json:"last_name"`
-	Password             string     `gorm:"type:text;not null" json:"-"`
-	Email                 string     `gorm:"type:text;not null;uniqueIndex" json:"email"`
-	EmailVerified         bool       `gorm:"type:boolean;not null;default:false" json:"email_verified"`
-	SubscriptionPlan      string     `gorm:"type:text;not null;default:'free'" json:"subscription_plan"`       // free, developer, professional, enterprise
-	BillingCycle          string     `gorm:"type:text;default:'lifetime'" json:"billing_cycle"`                // monthly, annual, lifetime
-	SubscriptionExpiresAt *time.Time `gorm:"type:timestamptz" json:"subscription_expires_at,omitempty"`  // null for lifetime/free subscriptions
+	FirstName        string `gorm:"type:text;not null" json:"first_name"`
+	LastName         string `gorm:"type:text;not null" json:"last_name"`
+	Password         string `gorm:"type:text;not null" json:"-"`
+	Email            string `gorm:"type:text;not null;uniqueIndex" json:"email"`
+	SubscriptionPlan string `gorm:"type:text;not null;default:'free'" json:"subscription_plan"` // free, developer, professional, enterprise
 
 	// Relationships
 	APIKeys  []DashboardAPIKey      `gorm:"foreignKey:ProfileID" json:"api_keys,omitempty"`
@@ -125,7 +122,6 @@ type DashboardAPIKey struct {
 	Name      string     `gorm:"type:text;not null" json:"name"`
 	KeyPrefix string     `gorm:"type:text;not null;uniqueIndex" json:"key_prefix"` // First 16 chars of the API key for fast lookup
 	KeyHash   string     `gorm:"type:text;not null;uniqueIndex" json:"key_hash"`
-	KeyPlain  string     `gorm:"type:text;not null" json:"key_plain"` // Plain text API key
 	IsActive  bool       `gorm:"type:boolean;not null;default:true" json:"is_active"`
 	LastUsed  *time.Time `gorm:"type:timestamptz" json:"last_used"`
 	CreatedAt time.Time  `gorm:"type:timestamptz;not null" json:"created_at"`
@@ -179,59 +175,4 @@ type DashboardPayment struct {
 
 func (DashboardPayment) TableName() string {
 	return "dashboard_payments"
-}
-
-// VerificationToken represents email verification tokens
-type VerificationToken struct {
-	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	Token     string    `gorm:"type:text;not null;uniqueIndex" json:"token"`
-	Email     string    `gorm:"type:text;not null;index" json:"email"`
-	Type      string    `gorm:"type:text;not null;default:'email_verification'" json:"type"` // email_verification, password_reset, etc.
-	Used      bool      `gorm:"type:boolean;not null;default:false" json:"used"`
-	ExpiresAt time.Time `gorm:"type:timestamptz;not null" json:"expires_at"`
-	CreatedAt time.Time `gorm:"type:timestamptz;not null" json:"created_at"`
-}
-
-func (VerificationToken) TableName() string {
-	return "verification_tokens"
-}
-
-// BeforeCreate sets the ID if not already set
-func (vt *VerificationToken) BeforeCreate(tx *gorm.DB) error {
-	if vt.ID == uuid.Nil {
-		vt.ID = uuid.New()
-	}
-	return nil
-}
-
-// Invoice represents the invoices table
-type Invoice struct {
-	ID            uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	InvoiceNumber string         `gorm:"type:varchar(255);not null;uniqueIndex" json:"invoice_number"`
-	AccountID     string         `gorm:"type:varchar(255);not null;index" json:"account_id"`
-	Amount        int64          `gorm:"type:bigint;not null" json:"amount"` // Amount in cents
-	Currency      string         `gorm:"type:varchar(10);not null;default:'USD'" json:"currency"`
-	DueDate       time.Time      `gorm:"type:timestamptz;not null;index" json:"due_date"`
-	IssuedAt      time.Time      `gorm:"type:timestamptz;not null;default:now();index" json:"issued_at"`
-	Status        string         `gorm:"type:varchar(50);not null;default:'pending';index" json:"status"` // pending, paid, failed, void
-	Metadata      datatypes.JSON `gorm:"type:jsonb;default:'{}'" json:"metadata"`
-	PaidAt        *time.Time     `gorm:"type:timestamptz" json:"paid_at,omitempty"`
-	PaymentID     *string        `gorm:"type:varchar(255)" json:"payment_id,omitempty"`
-	CreatedAt     time.Time      `gorm:"type:timestamptz;not null;default:now()" json:"created_at"`
-	UpdatedAt     time.Time      `gorm:"type:timestamptz;not null;default:now()" json:"updated_at"`
-
-	// Relationships
-	Account CompanyProfile `gorm:"foreignKey:AccountID;references:ID" json:"account,omitempty"`
-}
-
-func (Invoice) TableName() string {
-	return "invoices"
-}
-
-// BeforeCreate sets the ID if not already set
-func (i *Invoice) BeforeCreate(tx *gorm.DB) error {
-	if i.ID == uuid.Nil {
-		i.ID = uuid.New()
-	}
-	return nil
 }
