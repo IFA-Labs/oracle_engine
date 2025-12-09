@@ -62,6 +62,10 @@ contracts:
     chainID: "84532"
     chainName: "base-testnet"
     rpc: ""
+  - address: "0x"
+    abi: "0x"
+    chainID: "42420"
+    rpc: ""
 
 # Subscription Plans Configuration
 subscription_plans:

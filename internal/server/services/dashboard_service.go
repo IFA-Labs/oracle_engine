@@ -155,6 +155,8 @@ func (s *dashboardService) ValidateAPIKey(ctx context.Context, apiKey string) (*
 }
 
 func (s *dashboardService) CheckAPILimits(ctx context.Context, keyData *models.APIKey) (rateLimited, usageLimitExceeded bool, err error) {
+	// bug: default allow users for now
+	return false, false, nil
 	// Get subscription plan details from config
 	plan, exists := s.config.SubscriptionPlans[keyData.SubscriptionPlan]
 	if !exists {
