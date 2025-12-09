@@ -62,10 +62,16 @@ contracts:
     chainID: "84532"
     chainName: "base-testnet"
     rpc: ""
-  - address: "0x"
+  - address: "0xCca25A8A54Ba36697580270AF6b96B37f57E2A4D"
     abi: "0x"
-    chainID: "42420"
+    chainID: "84531"
+    chainName: "base-mainnet"
     rpc: ""
+  - address: "0xfA8F9975C81c3b2596E009905Da4B1349Bd93307"
+    abi: "0x"
+    chainID: "42421"
+    chainName: "assetchain-testnet"
+    rpc: "https://enugu-rpc.assetchain.org/"
 
 # Subscription Plans Configuration
 subscription_plans:
