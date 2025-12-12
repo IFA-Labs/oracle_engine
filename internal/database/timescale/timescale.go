@@ -128,6 +128,7 @@ func (t *TimescaleDB) GetLastPrice(ctx context.Context, assetID string) (*models
 
 func (t *TimescaleDB) SaveIssuance(ctx context.Context, issuance models.Issuance) error {
 	logging.Logger.Info("Saving issuance", zap.Any("issuance", issuance))
+	logging.Logger.Info("state comparison", zap.Any("state", issuance.State), zap.Any("approved", models.Approved), zap.Bool("equal", issuance.State == models.Approved))
 	if issuance.State == models.Approved {
 		if err := t.SavePrice(ctx, issuance.Price); err != nil {
 			logging.Logger.Info("Error saving price", zap.Any("err", err), zap.Any("price", issuance.Price.ID))
