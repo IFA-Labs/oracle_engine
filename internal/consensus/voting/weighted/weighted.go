@@ -88,7 +88,7 @@ func CalculateWeightedAveragePrice(
 			zap.Any("deviationThreshold", deviationThreshold),
 			zap.Any("isDeviated", isDeviated),
 		)
-		if isDeviated {
+		if !isDeviated {
 			state = models.Approved
 		} else {
 			state = models.Denied
