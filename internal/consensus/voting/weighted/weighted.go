@@ -65,11 +65,7 @@ func CalculateWeightedAveragePrice(
 
 	// Check for deviation
 	prices := append(pastXPrices, currPrice)
-	mean := 0.0
-	for _, p := range prices {
-		mean += p.Value
-	}
-	mean /= float64(len(prices))
+	mean := CalculatePriceMean(prices)
 
 	// deviationThreshold := 0.4 * mean
 	deviationThreshold := float64(assetSetting.DevPerc) * mean
@@ -82,10 +78,16 @@ func CalculateWeightedAveragePrice(
 	// also, allow if the last update timeout is more than 10s
 	lastUpdate := time.Since(currPrice.Timestamp)
 	deviationTTL := time.Duration(assetSetting.TTL) * time.Second
-	if lastUpdate > deviationTTL {
+	if lastUpdate > deviationTTL || deviationThreshold == 0 {
 		state = models.Approved
 	} else {
 		isDeviated = math.Abs(weightedAvg-mean) > deviationThreshold
+		logging.Logger.Info("Deviation check",
+			zap.Any("weightedAvg", weightedAvg),
+			zap.Any("mean", mean),
+			zap.Any("deviationThreshold", deviationThreshold),
+			zap.Any("isDeviated", isDeviated),
+		)
 		if isDeviated {
 			state = models.Approved
 		} else {
@@ -117,4 +119,17 @@ func CalculateWeightedAveragePrice(
 		PriceSource:    modPrice.Source,
 		Metadata:       modPrice.ConnectedPriceIDs,
 	}
+}
+
+func CalculatePriceMean(
+	prices []models.UnifiedPrice,
+) float64 {
+	if len(prices) == 0 {
+		return 0.0
+	}
+	sum := 0.0
+	for _, p := range prices {
+		sum += p.Value
+	}
+	return sum / float64(len(prices))
 }

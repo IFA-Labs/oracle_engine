@@ -80,7 +80,7 @@ func threadUnitCalculateBatchAverage(
 	avg := (firstPrice.Value + batch[len(batch)-1].Value) / 2
 
 	sum := 0.0
-	connectedPriceIDs := make([]string, len(batch))
+	connectedPriceIDs := make([]string, 0)
 	for _, p := range batch {
 		// TODO: check here for empty ids
 		if p.ID == "" {

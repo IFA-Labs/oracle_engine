@@ -39,7 +39,7 @@ type AssetConfig struct {
 
 var DefaultAssetSetting = AssetSetting{
 	TTL:     10,   // Default TTL in seconds
-	DevPerc: 0.01, // Default deviation percentage for consensus
+	DevPerc: 0.04, // Default deviation percentage for consensus
 }
 
 type ApiKey map[string]string
