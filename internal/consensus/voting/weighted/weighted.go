@@ -103,6 +103,7 @@ func CalculateWeightedAveragePrice(
 		zap.Any("exp", modPrice.Expo),
 		zap.Any("nor", modPrice.Number()),
 		zap.Any("xnor", modPrice),
+		zap.Any("state", state),
 	)
 
 	return models.Issuance{
