@@ -108,7 +108,7 @@ func (c *Consensus) processAggrPrice(
 	}
 	issuance := weighted.CalculateWeightedAveragePrice(id, price, lastPrices, *lastIssuance)
 
-	logging.Logger.Info("Isk", zap.Any("iss", price))
+	logging.Logger.Info("Isk", zap.Any("iss", issuance))
 
 	// Save the aggregated price in price and link
 	if err := c.db.SaveIssuance(ctx, issuance); err != nil {
