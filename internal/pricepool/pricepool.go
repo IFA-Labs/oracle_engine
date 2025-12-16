@@ -74,7 +74,7 @@ func (p *PricePool) processIncoming(ctx context.Context) {
 
 			logging.Logger.Warn("Incoming2", zap.Any("key", price.Value))
 			unifiedPrice := price.ToUnified()
-			logging.Logger.Info("Price stored",
+			logging.Logger.Debug("Price stored",
 				zap.String("asset", unifiedPrice.AssetID),
 				zap.Float64("num", unifiedPrice.Number()),
 				zap.Float64("num2", price.Number()),

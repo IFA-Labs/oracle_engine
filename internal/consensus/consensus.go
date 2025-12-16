@@ -69,7 +69,7 @@ func (c *Consensus) Ambassador(ctx context.Context, incomingCh aggregator.AggrUn
 }
 
 func (c *Consensus) handleIssuance(ctx context.Context, issuance models.Issuance) {
-	logging.Logger.Info("Issuance", zap.Int("num", int(issuance.Price.Number())))
+	logging.Logger.Debug("Issuance", zap.Int("num", int(issuance.Price.Number())))
 	c.issuanceCh <- issuance
 	// Pass to relayer
 	if err := c.relayer.AcceptIssuance(&issuance); err != nil {
@@ -108,7 +108,7 @@ func (c *Consensus) processAggrPrice(
 	}
 	issuance := weighted.CalculateWeightedAveragePrice(id, price, lastPrices, *lastIssuance)
 
-	logging.Logger.Info("Isk", zap.Any("iss", issuance))
+	logging.Logger.Debug("Isk", zap.Any("iss", issuance))
 
 	// Save the aggregated price in price and link
 	if err := c.db.SaveIssuance(ctx, issuance); err != nil {

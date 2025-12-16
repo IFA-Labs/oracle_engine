@@ -100,7 +100,7 @@ func (ds *DataStream) runFeed(ctx context.Context, asset string, assetId string,
 			price.Asset = asset
 
 			ds.out <- rawPrice
-			logging.Logger.Info("Price fetched",
+			logging.Logger.Debug("Price fetched",
 				zap.String("asset", rawPrice.Asset),
 				zap.Float64("value", rawPrice.Value),
 				zap.String("source", rawPrice.Source))

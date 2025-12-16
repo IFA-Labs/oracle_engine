@@ -46,7 +46,7 @@ func (ag *Aggregator) Start(ctx context.Context, cfg *config.Config) {
 	for _, asset := range cfg.Assets {
 		// TODO: calculate asset ID using identity string to hash
 		assetID := utils.GenerateIDForAsset(asset.InternalAssetIdentity)
-		logging.Logger.Info("asset aggr", zap.String("key", assetID))
+		logging.Logger.Debug("asset aggr", zap.String("key", assetID))
 
 		// create channel for the unit
 		aggrUnitCh := make(chan models.UnifiedPrice, 10)

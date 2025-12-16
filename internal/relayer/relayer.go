@@ -60,7 +60,7 @@ func (r *Relayer) Start(ctx context.Context) error {
 }
 
 func (r *Relayer) AcceptIssuance(issuance *models.Issuance) error {
-	logging.Logger.Info("Issuance accepted", zap.String("assetID", issuance.Price.AssetID))
+	logging.Logger.Debug("Issuance accepted", zap.String("assetID", issuance.Price.AssetID))
 	if _, ok := r.assetToRoutineChMap[issuance.Price.AssetID]; !ok {
 		return fmt.Errorf("no routine found for assetID: %s", issuance.Price.AssetID)
 	}
@@ -81,7 +81,7 @@ func (r *Relayer) startRoutine(ctx context.Context, assetID string) {
 }
 
 func (r *Relayer) ConveyIssuanceToContract(ctx context.Context, issuance *models.Issuance, ctrct config.ContractConfig) error {
-	logging.Logger.Info("Conveying issuance to contract", zap.String("assetID", issuance.Price.AssetID), zap.String("contract", ctrct.Address))
+	logging.Logger.Debug("Conveying issuance to contract", zap.String("assetID", issuance.Price.AssetID), zap.String("contract", ctrct.Address))
 	rpcUrl := ctrct.RPC
 	if rpcUrl == "" {
 		rpcUrl = os.Getenv("ALCHEMY_URL")
