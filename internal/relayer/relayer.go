@@ -162,7 +162,12 @@ func (r *Relayer) ConveyIssuanceToContract(ctx context.Context, issuance *models
 
 	tx, err := contract.SubmitPriceFeed(auth, assetIndex, prices)
 	if err != nil {
-		logging.Logger.Error("Failed to submit price feed", zap.Error(err))
+		logging.Logger.Error(
+			"Failed to submit price feed",
+			zap.Int64("chainID", chainID),
+			zap.String("Contract", address.String()),
+			zap.Error(err),
+		)
 		return fmt.Errorf("failed to submit price feed: %w", err)
 	}
 
