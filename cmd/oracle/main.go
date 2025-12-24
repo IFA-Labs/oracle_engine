@@ -29,7 +29,6 @@ import (
 func main() {
 	// Initialize Zap logger
 	logging.Init()
-	defer logging.Sync()
 
 	cfg := config.Load()
 	logging.Logger.Info("Starting oracle")

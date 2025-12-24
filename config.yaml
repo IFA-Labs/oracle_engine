@@ -17,6 +17,18 @@ assets:
       - name: "moralis"
         interval: 30
         assetID: "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+  - name: "USDC/USD"
+    internalAssetIdentity: "0xUSDC"
+    settings: 
+      TTL: 14400
+      devPerc: 0.05
+    feeds:
+      - name: "pyth"
+        interval: 10
+        assetID: "0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a"
+      - name: "moralis"
+        interval: 10
+        assetID: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
   - name: "ETH/USD"
     internalAssetIdentity: "0xETH"
     feeds:
@@ -67,10 +79,10 @@ contracts:
     chainID: "8453"
     chainName: "base-mainnet"
     rpc: "https://mainnet.base.org"
-  - address: "0xfA8F9975C81c3b2596E009905Da4B1349Bd93307"
+  - address: "0xABC8227c92aC2EBCd66e41D4ed52b3f24dD8f921"
     abi: "0x"
-    chainID: "42421"
-    chainName: "assetchain-testnet"
+    chainID: "42420"
+    chainName: "assetchain-mainnet"
     rpc: "https://enugu-rpc.assetchain.org/"
 
 # Subscription Plans Configuration

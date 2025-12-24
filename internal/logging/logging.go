@@ -45,6 +45,7 @@ func Init() {
 		consoleCore,
 	))
 	Logger = logger
+	defer Logger.Sync()
 }
 
 // Sync flushes any buffered log entries
