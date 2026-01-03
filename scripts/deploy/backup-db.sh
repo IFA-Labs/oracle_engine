@@ -7,7 +7,7 @@
 set -euo pipefail
 
 # Configuration
-BACKUP_DIR="${BACKUP_DIR:-/opt/oracle_engine/backups}"
+BACKUP_DIR="${BACKUP_DIR:-/var/www/oracle_engine/backups}"
 CONTAINER_NAME="${CONTAINER_NAME:-oracle-timescale}"
 POSTGRES_USER="${POSTGRES_USER:-oracle}"
 POSTGRES_DB="${POSTGRES_DB:-oracle_engine}"

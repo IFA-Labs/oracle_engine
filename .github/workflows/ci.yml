@@ -208,7 +208,7 @@ jobs:
           script_stop: true
           script: |
             set -e
-            cd /opt/oracle_engine
+            cd /var/www/oracle_engine
             
             echo "📦 Pulling latest images..."
             docker compose -f docker-compose.prod.yml pull

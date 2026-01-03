@@ -19,7 +19,7 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 # Configuration
 DEPLOY_HOST="${DEPLOY_HOST:-}"
 DEPLOY_USER="${DEPLOY_USER:-oracle}"
-DEPLOY_DIR="${DEPLOY_DIR:-/opt/oracle_engine}"
+DEPLOY_DIR="${DEPLOY_DIR:-/var/www/oracle_engine}"
 ROLLBACK_VERSION="${1:-}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
 

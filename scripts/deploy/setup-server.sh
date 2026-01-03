@@ -73,7 +73,7 @@ fi
 # ==============================================================================
 # Create application directories
 # ==============================================================================
-APP_DIR="/opt/oracle_engine"
+APP_DIR="/var/www/oracle_engine"
 log_info "Creating application directory: ${APP_DIR}..."
 mkdir -p "$APP_DIR"
 mkdir -p "$APP_DIR/logs"
@@ -134,7 +134,7 @@ Type=oneshot
 RemainAfterExit=yes
 User=oracle
 Group=oracle
-WorkingDirectory=/opt/oracle_engine
+WorkingDirectory=/var/www/oracle_engine
 ExecStart=/usr/bin/docker compose -f docker-compose.prod.yml up -d --remove-orphans
 ExecStop=/usr/bin/docker compose -f docker-compose.prod.yml down
 ExecReload=/usr/bin/docker compose -f docker-compose.prod.yml up -d --remove-orphans
@@ -152,7 +152,7 @@ systemctl enable oracle-engine
 # ==============================================================================
 log_info "Configuring log rotation..."
 cat > /etc/logrotate.d/oracle-engine << 'EOF'
-/opt/oracle_engine/logs/*.log {
+/var/www/oracle_engine/logs/*.log {
     daily
     missingok
     rotate 14

@@ -19,7 +19,7 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 # Configuration - Override these via environment variables
 DEPLOY_HOST="${DEPLOY_HOST:-}"
 DEPLOY_USER="${DEPLOY_USER:-oracle}"
-DEPLOY_DIR="${DEPLOY_DIR:-/opt/oracle_engine}"
+DEPLOY_DIR="${DEPLOY_DIR:-/var/www/oracle_engine}"
 DOCKER_IMAGE="${DOCKER_IMAGE:-ghcr.io/ifa-labs/oracle_engine:latest}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
 
