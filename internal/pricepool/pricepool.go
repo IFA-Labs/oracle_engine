@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
+	"time"
+
 	"oracle_engine/internal/config"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
 	"oracle_engine/internal/pricepool/dlq"
 	"oracle_engine/internal/pricepool/outlier"
-	"os"
-	"time"
 
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"

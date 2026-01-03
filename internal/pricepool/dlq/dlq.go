@@ -2,9 +2,10 @@ package dlq
 
 import (
 	"encoding/json"
+	"sync"
+
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
-	"sync"
 
 	"go.uber.org/zap"
 )

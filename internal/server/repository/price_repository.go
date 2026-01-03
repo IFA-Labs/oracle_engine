@@ -2,9 +2,10 @@ package repository
 
 import (
 	"context"
+	"time"
+
 	"oracle_engine/internal/database/timescale"
 	"oracle_engine/internal/models"
-	"time"
 )
 
 type PriceRepository interface {

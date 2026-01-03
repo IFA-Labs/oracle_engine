@@ -2,13 +2,14 @@ package consensus
 
 import (
 	"context"
+	"time"
+
 	"oracle_engine/internal/aggregator"
 	"oracle_engine/internal/consensus/voting/weighted"
 	"oracle_engine/internal/database/timescale"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
 	"oracle_engine/internal/relayer"
-	"time"
 
 	"github.com/google/uuid"
 

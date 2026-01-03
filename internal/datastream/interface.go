@@ -2,8 +2,9 @@ package datastream
 
 import (
 	"context"
-	"oracle_engine/internal/models"
 	"time"
+
+	"oracle_engine/internal/models"
 )
 
 type PriceFeed interface {

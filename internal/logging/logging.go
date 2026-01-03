@@ -54,4 +54,3 @@ func Sync() {
 		Logger.Sync()
 	}
 }
-

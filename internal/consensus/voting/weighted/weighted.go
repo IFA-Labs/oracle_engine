@@ -2,11 +2,12 @@ package weighted
 
 import (
 	"math"
+	"sort"
+	"time"
+
 	"oracle_engine/internal/config"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
-	"sort"
-	"time"
 
 	"go.uber.org/zap"
 )

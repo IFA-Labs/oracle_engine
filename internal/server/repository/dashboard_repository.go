@@ -6,10 +6,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"time"
+
 	"oracle_engine/internal/database/timescale"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
-	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"

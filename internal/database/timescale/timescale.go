@@ -4,10 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"oracle_engine/internal/logging"
-	"oracle_engine/internal/models"
 	"strings"
 	"time"
+
+	"oracle_engine/internal/logging"
+	"oracle_engine/internal/models"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"

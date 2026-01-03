@@ -2,6 +2,10 @@ package main
 
 import (
 	"context"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"oracle_engine/internal/aggregator"
 	"oracle_engine/internal/config"
 	"oracle_engine/internal/consensus"
@@ -19,9 +23,6 @@ import (
 	"oracle_engine/internal/pricepool"
 	"oracle_engine/internal/relayer"
 	"oracle_engine/internal/server"
-	"os"
-	"os/signal"
-	"syscall"
 
 	_ "oracle_engine/docs"
 )

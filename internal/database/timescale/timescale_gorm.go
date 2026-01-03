@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"oracle_engine/internal/logging"
-	"oracle_engine/internal/models"
 	"strings"
 	"time"
+
+	"oracle_engine/internal/logging"
+	"oracle_engine/internal/models"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"

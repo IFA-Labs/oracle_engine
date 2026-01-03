@@ -2,8 +2,9 @@ package middleware
 
 import (
 	"net/http"
-	"oracle_engine/internal/logging"
 	"time"
+
+	"oracle_engine/internal/logging"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"

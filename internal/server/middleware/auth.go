@@ -3,9 +3,10 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"strings"
+
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/server/services"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"

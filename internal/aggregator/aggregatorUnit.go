@@ -3,11 +3,12 @@ package aggregator
 import (
 	"context"
 	"math"
+	"sync"
+	"time"
+
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
 	"oracle_engine/internal/utils"
-	"sync"
-	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"

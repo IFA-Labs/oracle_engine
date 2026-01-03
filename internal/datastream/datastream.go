@@ -2,12 +2,13 @@ package datastream
 
 import (
 	"context"
+	"time"
+
 	"oracle_engine/internal/config"
 	"oracle_engine/internal/database/timescale"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
 	"oracle_engine/internal/utils"
-	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"

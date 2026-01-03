@@ -2,8 +2,9 @@ package binance
 
 import (
 	"context"
-	"oracle_engine/internal/models"
 	"time"
+
+	"oracle_engine/internal/models"
 )
 
 type BinanceFeed struct {

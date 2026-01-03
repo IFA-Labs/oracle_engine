@@ -5,9 +5,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"oracle_engine/internal/logging"
 	"strings"
 	"time"
+
+	"oracle_engine/internal/logging"
 
 	"go.uber.org/zap"
 )

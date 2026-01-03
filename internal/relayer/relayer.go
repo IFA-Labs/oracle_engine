@@ -5,12 +5,13 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"os"
+	"strconv"
+
 	"oracle_engine/internal/config"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
 	"oracle_engine/internal/utils"
-	"os"
-	"strconv"
 
 	"oracle_engine/internal/database/timescale"
 

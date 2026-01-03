@@ -7,10 +7,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"oracle_engine/internal/logging"
-	"oracle_engine/internal/models"
 	"strconv"
 	"time"
+
+	"oracle_engine/internal/logging"
+	"oracle_engine/internal/models"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"

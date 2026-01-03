@@ -2,10 +2,11 @@ package models
 
 import (
 	"math"
+	"time"
+
 	"oracle_engine/internal/config"
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/utils"
-	"time"
 
 	"go.uber.org/zap"
 )
