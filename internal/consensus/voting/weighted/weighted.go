@@ -69,11 +69,7 @@ func CalculateWeightedAveragePrice(
 
 	// deviationThreshold := 0.4 * mean
 	deviationThreshold := float64(assetSetting.DevPerc) * mean
-	state := models.Approved
-	// if isDeviated {
-	// 	// TODO: check other values before invalidating
-	// 	state = models.Denied
-	// }
+	var state models.IssuanceState
 
 	// also, allow if the last update timeout is more than 10s
 	lastUpdate := time.Since(currPrice.Timestamp)

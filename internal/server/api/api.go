@@ -551,6 +551,8 @@ func (a *API) handleLastPrice(c *gin.Context) {
 // 	})
 // }
 
+// handleIssuances saves a new issuance (currently unused, kept for future use)
+// nolint:unused
 func (a *API) handleIssuances(c *gin.Context) {
 	var issuance models.Issuance
 	if err := c.ShouldBindJSON(&issuance); err != nil {

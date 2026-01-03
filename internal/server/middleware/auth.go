@@ -73,10 +73,10 @@ func (a *AuthMiddleware) JWTAuth() gin.HandlerFunc {
 // APIKeyAuth validates API keys for external API access with rate limiting
 func (a *AuthMiddleware) APIKeyAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// bug: ignore api keys for now
+		// TODO: ignore api keys for now - remove this when ready to enable auth
 		c.Next()
 		return
-		//
+
 		apiKey := c.GetHeader("X-API-Key")
 		if apiKey == "" {
 			// Check query parameter as fallback

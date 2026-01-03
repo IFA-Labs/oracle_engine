@@ -24,8 +24,8 @@ type Price struct {
 }
 
 type AssetFeed struct {
-	feed  config.FeedConfig
-	asset string
+	Feed  config.FeedConfig
+	Asset string
 }
 
 type PriceChange struct {

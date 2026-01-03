@@ -7,6 +7,8 @@ import (
 	"github.com/swaggo/swag"
 )
 
+// handleSwagger serves swagger documentation (currently unused, kept for future use)
+// nolint:unused
 func (a *API) handleSwagger(w http.ResponseWriter, r *http.Request) {
 	// If the request is for swagger.json, serve it directly
 	if r.URL.Path == "/api/swagger.json" {
@@ -16,7 +18,7 @@ func (a *API) handleSwagger(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Failed to read Swagger doc", http.StatusInternalServerError)
 			return
 		}
-		w.Write([]byte(doc))
+		_, _ = w.Write([]byte(doc))
 		return
 	}
 
