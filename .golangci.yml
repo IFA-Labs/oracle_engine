@@ -5,10 +5,6 @@ run:
   timeout: 5m
   issues-exit-code: 1
   tests: true
-  skip-dirs:
-    - vendor
-    - docs
-    - pkg/abi
 
 output:
   formats:
@@ -61,6 +57,11 @@ linters-settings:
       - -SA1019  # Ignore deprecation warnings for now
 
 issues:
+  exclude-dirs:
+    - vendor
+    - docs
+    - pkg/abi
+
   exclude-rules:
     # Exclude some linters from running on tests files
     - path: _test\.go
