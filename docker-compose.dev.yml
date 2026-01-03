@@ -1,5 +1,8 @@
 version: '3.8'
 
+# Development Docker Compose Configuration
+# Usage: docker compose -f docker-compose.dev.yml up --build
+
 x-logging: &default-logging
   driver: "json-file"
   options:
@@ -18,6 +21,12 @@ x-large-logging: &large-logging
     max-size: "20m"
     max-file: "3"
 
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 30s
+
 services:
   oracle:
     build:
@@ -26,10 +35,12 @@ services:
     container_name: oracle-dev
     volumes:
       - .:/app
-      - ./config.yaml:/app/config.yaml
+      - go-mod-cache:/go/pkg/mod
     depends_on:
-      - redis
-      - timescale
+      redis:
+        condition: service_healthy
+      timescale:
+        condition: service_healthy
     env_file:
       - .env
     environment:
@@ -41,7 +52,10 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
       - APP_ENV=dev
-      - APP_USER=gorgeous-kata
+      - GIN_MODE=debug
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      <<: *healthcheck-defaults
     ports:
       - "8000:8000"
     networks:
@@ -51,9 +65,12 @@ services:
   redis:
     image: redis:7-alpine
     container_name: redis-dev
-    command: redis-server --requirepass ""
+    command: redis-server --requirepass "${REDIS_PASSWORD:-}"
     volumes:
       - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      <<: *healthcheck-defaults
     ports:
       - "6379:6379"
     networks:
@@ -71,31 +88,22 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
     volumes:
       - timescale-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-oracle} -d ${POSTGRES_DB:-oracle_engine}"]
+      <<: *healthcheck-defaults
     ports:
       - "5430:5432"
     networks:
       - oracle-net
     logging: *large-logging
 
-  nginx:
-    image: nginx:latest
-    container_name: nginx
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - /etc/letsencrypt:/etc/letsencrypt:ro
-    depends_on:
-      - oracle
-    networks:
-      - oracle-net
-    logging: *default-logging
+  # Nginx not needed for local development
+  # Access the oracle service directly on port 8000
 
 volumes:
   redis-data:
   timescale-data:
-
+  go-mod-cache:
 
 networks:
   oracle-net:
