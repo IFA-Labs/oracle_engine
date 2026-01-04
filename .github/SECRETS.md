@@ -84,7 +84,7 @@ DB_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescale:5432/${POSTGRE
 ```bash
 REDIS_HOST=redis
 REDIS_PORT=6379
-REDIS_PASSWORD=<optional-redis-password>
+REDIS_PASSWORD=<strong-random-password>  # Required for production
 ```
 
 ### Blockchain Configuration

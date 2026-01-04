@@ -46,6 +46,7 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
       - POSTGRES_HOST=timescale
       - POSTGRES_PORT=5432
       - POSTGRES_USER=${POSTGRES_USER}
@@ -65,11 +66,13 @@ services:
   redis:
     image: redis:7-alpine
     container_name: redis-dev
-    command: redis-server --requirepass "${REDIS_PASSWORD:-}"
+    command: redis-server --requirepass "${REDIS_PASSWORD}"
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$REDIS_PASSWORD\" ping | grep PONG || exit 1"]
       <<: *healthcheck-defaults
     ports:
       - "6379:6379"

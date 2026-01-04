@@ -34,10 +34,11 @@ func New(cfg *config.Config, incoming chan models.Price) *PricePool {
 	if redisPort == "" {
 		redisPort = "6379"
 	}
+	redisPassword := os.Getenv("REDIS_PASSWORD")
 
 	client := redis.NewClient(&redis.Options{
 		Addr:     redisHost + ":" + redisPort,
-		Password: "", // Add via env if needed
+		Password: redisPassword,
 		DB:       0,
 	})
 
