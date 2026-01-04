@@ -159,11 +159,15 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             
+            echo "🧹 Cleaning up orphaned containers..."
+            docker compose -f docker-compose.prod.yml down --remove-orphans || true
+            docker container prune -f || true
+            
             echo "🔨 Building Docker images..."
             docker compose -f docker-compose.prod.yml build --no-cache
             
-            echo "🔄 Updating containers..."
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            echo "🔄 Starting containers..."
+            docker compose -f docker-compose.prod.yml up -d
             
             echo "🧹 Cleaning up old images..."
             docker image prune -f
