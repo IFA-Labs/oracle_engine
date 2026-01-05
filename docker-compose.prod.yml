@@ -47,17 +47,16 @@ services:
       - APP_ENV=production
       - GIN_MODE=release
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       <<: *healthcheck-defaults
     networks:
       - oracle-net
     logging: *default-logging
     security_opt:
       - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /tmp:mode=1777,uid=1001,gid=1001
-      - /app/logs:mode=0755,uid=1001,gid=1001
+    # read_only: true  # Disabled temporarily for debugging
+    volumes:
+      - oracle-logs:/app/logs
 
   redis:
     image: redis:7-alpine
@@ -174,6 +173,8 @@ volumes:
   redis-data:
     driver: local
   timescale-data:
+    driver: local
+  oracle-logs:
     driver: local
   # prometheus-data:
   #   driver: local
