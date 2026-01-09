@@ -83,12 +83,12 @@ contracts:
     abi: "0x"
     chainID: "42420"
     chainName: "assetchain-mainnet"
-    rpc: "https://enugu-rpc.assetchain.org/"
+    rpc: "https://enugu-rpc.assetchain.org"
   - address: "0xf231c98f062836125747D602F6Bf215b8A44FD68"
     abi: "0x"
     chainID: "5003"
     chainName: "mantle-testnet"
-    rpc: "https://sepolia.mantle.xyz/"
+    rpc: "https://rpc.sepolia.mantle.xyz"
 
 # Subscription Plans Configuration
 subscription_plans:

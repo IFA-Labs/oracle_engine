@@ -113,7 +113,7 @@ func (r *Relayer) ConveyIssuanceToContract(ctx context.Context, issuance *models
 
 	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
 	if err != nil {
-		logging.Logger.Error("Failed to get nonce", zap.Error(err))
+		logging.Logger.Error("Failed to get nonce", zap.Error(err), zap.String("chainId", ctrct.ChainID))
 		return err
 	}
 
@@ -172,7 +172,7 @@ func (r *Relayer) ConveyIssuanceToContract(ctx context.Context, issuance *models
 		return fmt.Errorf("failed to submit price feed: %w", err)
 	}
 
-	logging.Logger.Info("Submitted price feed", zap.String("tx", tx.Hash().Hex()))
+	logging.Logger.Info("Submitted price feed", zap.String("tx", tx.Hash().Hex()), zap.String("chainID", ctrct.ChainID))
 
 	return nil
 }
