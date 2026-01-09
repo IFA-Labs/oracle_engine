@@ -176,7 +176,7 @@ jobs:
             sleep 20
             
             echo "🏥 Checking service health..."
-            curl -sf http://localhost:8000/api/health || exit 1
+            curl -sf https://staging.api.ifalabs.com/api/health || exit 1
             
             echo "✅ Deployment successful!"
 
