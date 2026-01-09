@@ -82,7 +82,7 @@ func (r *Relayer) startRoutine(ctx context.Context, assetID string) {
 }
 
 func (r *Relayer) ConveyIssuanceToContract(ctx context.Context, issuance *models.Issuance, ctrct config.ContractConfig) error {
-	logging.Logger.Debug("Conveying issuance to contract", zap.String("assetID", issuance.Price.AssetID), zap.String("contract", ctrct.Address))
+	logging.Logger.Debug("ronveying issuance to contract", zap.String("assetID", issuance.Price.AssetID), zap.String("chainId", ctrct.ChainID))
 	rpcUrl := ctrct.RPC
 	if rpcUrl == "" {
 		rpcUrl = os.Getenv("ALCHEMY_URL")

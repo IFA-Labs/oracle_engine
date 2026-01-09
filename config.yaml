@@ -88,7 +88,7 @@ contracts:
     abi: "0x"
     chainID: "5003"
     chainName: "mantle-testnet"
-    rpc: "https://rpc.testnet.mantle.xyz/"
+    rpc: "https://sepolia.mantle.xyz/"
 
 # Subscription Plans Configuration
 subscription_plans:
