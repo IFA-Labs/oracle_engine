@@ -135,7 +135,7 @@ func (r *Relayer) ConveyIssuanceToContract(ctx context.Context, issuance *models
 	}
 
 	auth.Nonce = big.NewInt(int64(nonce))
-	auth.Value = big.NewInt(0)     // in wei
+	auth.Value = big.NewInt(0)       // in wei
 	auth.GasLimit = uint64(80000000) // in units
 	auth.GasPrice = gasPrice
 
