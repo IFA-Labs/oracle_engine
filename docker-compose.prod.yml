@@ -153,18 +153,18 @@ services:
       - no-new-privileges:true
   
   certbot:
-  image: certbot/certbot
-  container_name: oracle-certbot
-  volumes:
-    - ./letsencrypt:/etc/letsencrypt
-    - ./webroot:/var/www/certbot
-    - /var/run/docker.sock:/var/run/docker.sock
-  entrypoint: >
-    sh -c "while true; do
-      certbot renew --webroot -w /var/www/certbot;
-      docker kill -s HUP oracle-nginx;
-      sleep 12h;
-    done"
+    image: certbot/certbot
+    container_name: oracle-certbot
+    volumes:
+      - ./letsencrypt:/etc/letsencrypt
+      - ./webroot:/var/www/certbot
+      - /var/run/docker.sock:/var/run/docker.sock
+    entrypoint: >
+      sh -c "while true; do
+        certbot renew --webroot -w /var/www/certbot;
+        docker kill -s HUP oracle-nginx;
+        sleep 12h;
+      done"
 
   # Optional: Prometheus metrics exporter
   # Uncomment if you want to add monitoring
