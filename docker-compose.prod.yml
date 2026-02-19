@@ -138,8 +138,8 @@ services:
       - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro
-      - /var/www/certbot:/var/www/certbot:ro
+      - ./letsencrypt:/etc/letsencrypt:ro
+      - ./webroot:/var/www/certbot:ro
     depends_on:
       oracle:
         condition: service_healthy
@@ -151,6 +151,20 @@ services:
     logging: *default-logging
     security_opt:
       - no-new-privileges:true
+  
+  certbot:
+  image: certbot/certbot
+  container_name: oracle-certbot
+  volumes:
+    - ./letsencrypt:/etc/letsencrypt
+    - ./webroot:/var/www/certbot
+    - /var/run/docker.sock:/var/run/docker.sock
+  entrypoint: >
+    sh -c "while true; do
+      certbot renew --webroot -w /var/www/certbot;
+      docker kill -s HUP oracle-nginx;
+      sleep 12h;
+    done"
 
   # Optional: Prometheus metrics exporter
   # Uncomment if you want to add monitoring
