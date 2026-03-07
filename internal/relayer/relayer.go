@@ -1,3 +1,4 @@
+// This package is to be deprecated in favor of the CRE workflow which is more robust and has better error handling.
 package relayer
 
 import (
