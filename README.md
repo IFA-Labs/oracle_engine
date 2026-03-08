@@ -11,27 +11,83 @@ A real-time, reliable asset price oracle system that provides aggregated moving 
 - **Database Integration**: TimescaleDB for time-series data storage
 - **Caching**: Redis for high-performance caching
 - **Docker Support**: Containerized deployment with Docker Compose
-- **Hot Reloading**: Development mode with Air for automatic code reloading
+- **CRE**: Cross chain deployment using global CRE relayer
 
 ## Architecture
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Data Sources  │    │   Price Pool    │    │   Aggregator    │
-│                 │    │                 │    │                 │
-│ • Pyth         │───▶│ • Outlier       │───▶│ • Consensus     │
-│ • MonieRate    │    │   Detection     │    │   Algorithm     │
-│ • ExchangeRate │    │ • DLQ           │    │ • Weighted      │
-│ • TwelveData   │    │                 │    │   Voting        │
-│ • Fixer        │    └─────────────────┘    └─────────────────┘
-│ • CurrencyLayer│                                    │
-│ • Moralis      │                                    ▼
-└─────────────────┘                         ┌─────────────────┐
-                                            │   Relayer       │
-                                            │                 │
-                                            │ • Blockchain    │
-                                            │   Integration   │
-                                            └─────────────────┘
+```mermaid
+flowchart TD
+    %% Data Sources Layer
+    subgraph DataSources ["External Data Sources"]
+        Pyth["Pyth Network"]
+        Monie["MonieRate"]
+        Exchange["ExchangeRate"]
+        Twelve["TwelveData"]
+        Fixer["Fixer.io"]
+        Currency["CurrencyLayer"]
+        Moralis["Moralis"]
+    end
+
+    %% Oracle Engine Core Backend
+    subgraph CoreEngine ["Oracle Engine Backend"]
+        DataStream["Data Stream Adapters"]
+        
+        subgraph Pool ["Price Pool"]
+            DLQ["Dead Letter Queue"]
+            Outlier["Outlier Detection"]
+        end
+        
+        subgraph ConsensusSystem ["Consensus & Aggregator"]
+            Aggregator["Aggregator Algorithm"]
+            Weighted["Weighted Voting"]
+        end
+        
+        DB[("TimescaleDB & Redis")]
+        API["REST API / SSE"]
+    end
+
+    %% The New Relayer (CRE Workflow)
+    subgraph CRERelayer ["Chainlink Runtime Environment (CRE) Workflow"]
+        direction TB
+        Cron(("Cron Trigger"))
+        HTTPTask["HTTP Capability Fetcher"]
+        CRE_Consensus["CRE Report Consensus"]
+        FanoutTx["EVM Report Writer"]
+    end
+
+    %% Target Chains
+    subgraph Blockchains ["Destination EVM Chains"]
+        ContractA["Oracle Contract Chain A"]
+        ContractB["Oracle Contract Chain B"]
+    end
+
+    %% Flow connections
+    DataSources -->|"Websockets/REST"| DataStream
+    DataStream --> Pool
+    Pool --> ConsensusSystem
+    ConsensusSystem --> DB
+    DB -.-> API
+
+    %% CRE Integration
+    Cron -->|"Triggers Schedule"| HTTPTask
+    HTTPTask -->|"GET /api/prices/last"| API
+    API -->|"Raw Aggregated Prices"| HTTPTask
+    HTTPTask --> CRE_Consensus
+    CRE_Consensus -->|"Generates Signed Report"| FanoutTx
+    
+    FanoutTx -->|"oracle.WriteReport()"| ContractA
+    FanoutTx -->|"oracle.WriteReport()"| ContractB
+
+    %% Styling Elements
+    classDef external fill:#f9f9f9,stroke:#333,stroke-width:1px;
+    classDef core fill:#e1f5fe,stroke:#0288d1,stroke-width:2px;
+    classDef cre fill:#e8f5e9,stroke:#388e3c,stroke-width:2px;
+    classDef db fill:#fff3e0,stroke:#f57c00,stroke-width:2px;
+
+    class Pyth,Monie,Exchange,Twelve,Fixer,Currency,Moralis,ContractA,ContractB external;
+    class DataStream,DLQ,Outlier,Aggregator,Weighted,API core;
+    class Cron,HTTPTask,CRE_Consensus,FanoutTx cre;
+    class DB db;
 ```
 
 ## Prerequisites
