@@ -13,6 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	pb2 "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
@@ -133,21 +134,42 @@ func submitPriceFeedToChain(runtime cre.Runtime, evmCfg EVMConfig, priceFeedData
 		return fmt.Errorf("failed to create oracle contract: %w", err)
 	}
 
-	for index := 0; index < len(priceFeedData.AssetIndices); index++ {
-		logger.Info("prepared price feed for submission", "in", index, "chain", evmCfg.ChainName, "assetIndex", fmt.Sprintf("%x", priceFeedData.AssetIndices[index]), "price", priceFeedData.Prices[index].Price.String())
-		pi := priceFeedData.AssetIndices[index]
-		pp := priceFeedData.Prices[index]
-		resp, err := oracle.WriteReportFromIfaPriceFeedVerifierSumissionData(runtime, ioracle.IfaPriceFeedVerifierSumissionData{
-			Assesetindex: pi,
-			Price: pp,
-		}, nil).Await()
-		if err != nil {
-			logger.Error("failed to submit price feed", "chain", evmCfg.ChainName, "assetIndex", fmt.Sprintf("%x", pi[:4]), "err", err)
-			return fmt.Errorf("failed to submit price feed for asset index %x: %w", pi[:4], err)
-		}
-		logger.Info("submitted price feed for asset index", "chain", evmCfg.ChainName, "assetIndex", fmt.Sprintf("%x", pi[:4]), "txHash", common.BytesToHash(resp.TxHash).Hex())
+	input := ioracle.SubmitPriceFeedInput{
+		Assetindex: priceFeedData.AssetIndices,
+		Prices:     priceFeedData.Prices,
 	}
 
+	encoded, err := oracle.Codec.EncodeSubmitPriceFeedMethodCall(input)
+	if err != nil {
+		return fmt.Errorf("failed to encode submitPriceFeed call: %w", err)
+	}
+
+	reportPromise := runtime.GenerateReport(&pb2.ReportRequest{
+		EncodedPayload: encoded,
+		EncoderName:    "evm",
+		SigningAlgo:    "ecdsa",
+		HashingAlgo:    "keccak256",
+	})
+
+	report, err := reportPromise.Await()
+	if err != nil {
+		return fmt.Errorf("failed to generate report: %w", err)
+	}
+
+	var gasConfig *evm.GasConfig
+	if evmCfg.GasLimit > 0 {
+		gasConfig = &evm.GasConfig{
+			GasLimit: evmCfg.GasLimit,
+		}
+	}
+
+	resp, err := oracle.WriteReport(runtime, report, gasConfig).Await()
+	if err != nil {
+		logger.Error("WriteReport failed", "error", err, "chain", evmCfg.ChainName)
+		return fmt.Errorf("failed to write report: %w", err)
+	}
+
+	logger.Info("price feed submitted", "txHash", common.BytesToHash(resp.TxHash).Hex(), "chain", evmCfg.ChainName)
 	return nil
 }
 

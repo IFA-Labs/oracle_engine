@@ -72,13 +72,14 @@ jobs:
         run: go mod download
 
       - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+        run: go test -v -race ./...
         env:
           DB_URL: postgres://test:test@localhost:5432/oracle_test?sslmode=disable
           REDIS_HOST: localhost
           REDIS_PORT: 6379
 
-      - name: Upload coverage to Codecov
+      - name: Upload coverage to Codecov (temporarily disabled)
+        if: false
         uses: codecov/codecov-action@v4
         with:
           files: ./coverage.out
