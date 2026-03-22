@@ -5,17 +5,7 @@
     {
       "chainName": "ethereum-testnet-sepolia",
       "gasLimit": 1000000,
-      "oracleContractAddress": "0x0000000000000000000000000000000000000000"
-    },
-    {
-      "chainName": "ethereum-mainnet-base-1",
-      "gasLimit":1000000,
-      "oracleContractAddress": "0x0000000000000000000000000000000000000000"
-    },
-    {
-      "chainName": "binance_smart_chain-mainnet",
-      "gasLimit":1000000,
-      "oracleContractAddress":"0x0000000000000000000000000000000000000000"
+      "oracleContractAddress": "0xA8B5dD02ce6e8c04f078304c91A93D39Ce71Cf22"
     }
   ]
 }

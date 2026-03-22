@@ -1,0 +1,19 @@
+=== RUN   TestInitWorkflow
+--- PASS: TestInitWorkflow (0.00s)
+=== RUN   TestOnCronTrigger
+--- PASS: TestOnCronTrigger (0.00s)
+=== RUN   TestFetchPrices
+    workflow_test.go:119: 
+        	Error Trace:	/Users/x/lab/w3/ifalabs/oracle_engine/oracle/fanout/workflow_test.go:119
+        	Error:      	Not equal: 
+        	            	expected: float64(9.999548180310271e+17)
+        	            	actual  : json.Number("999954818031027100")
+        	Test:       	TestFetchPrices
+--- FAIL: TestFetchPrices (0.00s)
+=== RUN   TestHexToBytes32
+--- PASS: TestHexToBytes32 (0.00s)
+=== RUN   TestConvertPriceToInt256
+--- PASS: TestConvertPriceToInt256 (0.00s)
+FAIL
+FAIL	oracle/fanout	1.271s
+FAIL
