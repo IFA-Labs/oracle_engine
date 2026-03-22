@@ -5,10 +5,7 @@ import (
 	"time"
 
 	"oracle_engine/internal/config"
-	"oracle_engine/internal/logging"
 	"oracle_engine/internal/utils"
-
-	"go.uber.org/zap"
 )
 
 const TargetExpo int = 18
@@ -78,12 +75,6 @@ func (p Price) ToUnified() UnifiedPrice {
 func (up Price) Number() float64 {
 	// Calculate raw value (Value * 10^Expo)
 	rawValue := float64(up.Value) * math.Pow10(int(up.Expo))
-	logging.Logger.Warn("Here",
-		zap.Any("val", up.Value),
-		zap.Any("exp", up.Expo),
-		zap.Any("asset", up.Asset),
-	)
-
 	return rawValue
 }
 

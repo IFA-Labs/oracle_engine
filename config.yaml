@@ -37,7 +37,13 @@ assets:
         assetID: "ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace"
       - name: "coingecko"
         interval: 276
-        assetID: "2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b"
+        assetID: ""
+  - name: "ZARP/USD"
+    internalAssetIdentity: "0xZARP"
+    feeds:
+      - name: "coingecko"
+        interval: 10
+        assetID: "0xb755506531786c8ac63b756bab1ac387bacb0c04"
   - name: "CNGN/USD"
     internalAssetIdentity: "0xCNGN"
     feeds:
