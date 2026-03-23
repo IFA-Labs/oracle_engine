@@ -62,6 +62,7 @@ func (p *CoingeckoFeed) FetchPrice(ctx context.Context, assetID, internalAssetId
 		Source:                p.Name(),
 		InternalAssetIdentity: internalAssetId,
 		ReqURL:                fullURL,
+		Asset:                 assetID,
 	}, nil
 }
 
