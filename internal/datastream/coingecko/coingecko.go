@@ -10,6 +10,8 @@ import (
 
 	"oracle_engine/internal/logging"
 	"oracle_engine/internal/models"
+
+	"github.com/google/uuid"
 )
 
 type CoingeckoFeed struct {
@@ -25,7 +27,7 @@ type CoingeckoResponse struct {
 	USD float64 `json:"usd"`
 }
 
-func (p *CoingeckoFeed) FetchPrice(ctx context.Context, assetID string) (*models.Price, error) {
+func (p *CoingeckoFeed) FetchPrice(ctx context.Context, assetID, internalAssetId string) (*models.Price, error) {
 
 	baseURL := fmt.Sprintf("https://api.coingecko.com/api/v3/simple/price?ids=%s&vs_currencies=usd", assetID)
 	fullURL := fmt.Sprintf("%s", baseURL)
@@ -54,8 +56,12 @@ func (p *CoingeckoFeed) FetchPrice(ctx context.Context, assetID string) (*models
 	// Coingecko api call
 	return &models.Price{
 		Value:     parsed.USD,
+		Expo: 0,
+		ID: uuid.NewString(),
 		Timestamp: time.Now(),
 		Source:    p.Name(),
+		InternalAssetIdentity: internalAssetId,
+		ReqURL: fullURL,
 	}, nil
 }
 

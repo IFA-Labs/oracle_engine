@@ -11,6 +11,7 @@ import (
 	"oracle_engine/internal/consensus"
 	"oracle_engine/internal/database/timescale"
 	"oracle_engine/internal/datastream"
+	"oracle_engine/internal/datastream/coingecko"
 	"oracle_engine/internal/datastream/currencylayer"
 	"oracle_engine/internal/datastream/exchangerate"
 	"oracle_engine/internal/datastream/fixer"
@@ -46,6 +47,7 @@ func main() {
 
 	// Register feeds
 	ds.RegisterFeed(pyth.New())
+	ds.RegisterFeed(coingecko.New())
 	ds.RegisterFeed(monierate.New(cfg))
 	ds.RegisterFeed(exchangerate.New(cfg))
 	ds.RegisterFeed(twelvedata.New(cfg))

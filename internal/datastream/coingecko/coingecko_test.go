@@ -47,7 +47,7 @@ func TestFetchPriceWithMock(t *testing.T) {
 		}, nil
 	})
 
-	price, err := feed.FetchPrice(ctx, "bitcoin")
+	price, err := feed.FetchPrice(ctx, "bitcoin", "0x")
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestFetchPriceRealHTTPParsesStructure(t *testing.T) {
 	feed := New()
 	ctx := context.Background()
 
-	price, err := feed.FetchPrice(ctx, "zarp-stablecoin")
+	price, err := feed.FetchPrice(ctx, "zarp-stablecoin", "0x")
 	if err != nil {
 		t.Fatalf("expected no error from real HTTP call, got: %v", err)
 	}
