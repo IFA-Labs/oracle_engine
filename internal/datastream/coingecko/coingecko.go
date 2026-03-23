@@ -55,13 +55,13 @@ func (p *CoingeckoFeed) FetchPrice(ctx context.Context, assetID, internalAssetId
 
 	// Coingecko api call
 	return &models.Price{
-		Value:     parsed.USD,
-		Expo: 0,
-		ID: uuid.NewString(),
-		Timestamp: time.Now(),
-		Source:    p.Name(),
+		Value:                 parsed.USD,
+		Expo:                  0,
+		ID:                    uuid.NewString(),
+		Timestamp:             time.Now(),
+		Source:                p.Name(),
 		InternalAssetIdentity: internalAssetId,
-		ReqURL: fullURL,
+		ReqURL:                fullURL,
 	}, nil
 }
 
