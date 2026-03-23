@@ -43,7 +43,7 @@ assets:
     feeds:
       - name: "coingecko"
         interval: 10
-        assetID: "0xb755506531786c8ac63b756bab1ac387bacb0c04"
+        assetID: "zarp-stablecoin"
   - name: "CNGN/USD"
     internalAssetIdentity: "0xCNGN"
     feeds:

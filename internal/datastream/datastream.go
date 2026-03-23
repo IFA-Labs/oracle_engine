@@ -50,7 +50,7 @@ func (ds *DataStream) Start(ctx context.Context, cfg *config.Config) {
 	}
 }
 
-func (ds *DataStream) runFeed(ctx context.Context, asset string, assetId string,
+func (ds *DataStream) runFeed(ctx context.Context, asset, assetId,
 	internalAssetIdentity string, feed PriceFeed, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
