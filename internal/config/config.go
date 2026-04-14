@@ -22,6 +22,13 @@ type ContractConfig struct {
 	ChainName string `mapstructure:"chainName"`
 }
 
+type RelayerBatchConfig struct {
+	Enabled              bool `mapstructure:"enabled"`
+	MaxIssuances         int  `mapstructure:"max_issuances"`
+	FlushIntervalSeconds int  `mapstructure:"flush_interval_seconds"`
+	ChannelBuffer        int  `mapstructure:"channel_buffer"`
+}
+
 type AssetSetting struct {
 	// ttl in seconds
 	TTL int `mapstructure:"ttl"` // Time to live for price pool
@@ -67,6 +74,7 @@ type Config struct {
 	Assets               []AssetConfig               `mapstructure:"assets"`
 	ApiKeys              ApiKey                      `mapstructure:"api_keys"`
 	Contracts            []ContractConfig            `mapstructure:"contracts"`
+	RelayerBatch         RelayerBatchConfig          `mapstructure:"relayer_batch"`
 	PrivateKey           string                      `mapstructure:"private_key"`
 	DB_URL               string                      `mapstructure:"DB_URL"`
 	SERVER_PORT          string                      `mapstructure:"server_port"`
@@ -82,6 +90,12 @@ func Load() *Config {
 	viper.SetDefault("price_pool_ttl", 10)
 	viper.SetDefault("aggregator_nodes", 3)
 	viper.SetDefault("consensus_threshold", 0.01)
+	viper.SetDefault("relayer_batch", map[string]interface{}{
+		"enabled":                true,
+		"max_issuances":          20,
+		"flush_interval_seconds": 3,
+		"channel_buffer":         256,
+	})
 	viper.SetDefault("api_keys", map[string]string{
 		"monierate":     os.Getenv("MONIERATE_API_KEY"),
 		"exchangerate":  os.Getenv("EXCHANGERATE_API_KEY"),

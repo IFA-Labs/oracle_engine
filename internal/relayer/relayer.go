@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"sort"
 	"strconv"
+	"sync"
+	"time"
 
 	"oracle_engine/internal/config"
 	"oracle_engine/internal/logging"
@@ -30,16 +33,18 @@ import (
 // / It also updates the status of the issuance request
 // / in local db (also the asset instance)
 type Relayer struct {
-	cfg                 *config.Config
-	assetToRoutineChMap map[string]chan *models.Issuance
-	db                  *timescale.TimescaleDB
+	cfg                    *config.Config
+	contractToRoutineChMap map[string]chan *models.Issuance
+	chainLocks             map[string]*sync.Mutex
+	db                     *timescale.TimescaleDB
 }
 
 func New(config *config.Config, db *timescale.TimescaleDB) *Relayer {
 	return &Relayer{
-		cfg:                 config,
-		assetToRoutineChMap: make(map[string]chan *models.Issuance),
-		db:                  db,
+		cfg:                    config,
+		contractToRoutineChMap: make(map[string]chan *models.Issuance),
+		chainLocks:             make(map[string]*sync.Mutex),
+		db:                     db,
 	}
 }
 
@@ -47,43 +52,106 @@ func New(config *config.Config, db *timescale.TimescaleDB) *Relayer {
 // / Start a go routine for each issuance
 // / Each contract has its own go routine
 func (r *Relayer) Start(ctx context.Context) error {
-	for _, asset := range r.cfg.Assets {
-		assetId := utils.GenerateIDForAsset(asset.InternalAssetIdentity)
-		r.assetToRoutineChMap[assetId] = make(chan *models.Issuance)
-		go r.startRoutine(ctx, assetId)
+	bufferSize := r.cfg.RelayerBatch.ChannelBuffer
+	if bufferSize <= 0 {
+		bufferSize = 256
 	}
 
-	for c := range ctx.Done() {
-		logging.Logger.Info("Relayer routine stopped", zap.Any("cause", c))
-		return ctx.Err()
+	for _, ctrct := range r.cfg.Contracts {
+		contractKey := r.contractKey(ctrct)
+		r.contractToRoutineChMap[contractKey] = make(chan *models.Issuance, bufferSize)
+		if _, ok := r.chainLocks[ctrct.ChainID]; !ok {
+			r.chainLocks[ctrct.ChainID] = &sync.Mutex{}
+		}
+		go r.startRoutine(ctx, ctrct, r.contractToRoutineChMap[contractKey])
 	}
-	return nil
+
+	<-ctx.Done()
+	logging.Logger.Info("Relayer routine stopped", zap.Error(ctx.Err()))
+	return ctx.Err()
 
 }
 
 func (r *Relayer) AcceptIssuance(issuance *models.Issuance) error {
 	logging.Logger.Debug("Issuance accepted", zap.String("assetID", issuance.Price.AssetID))
-	if _, ok := r.assetToRoutineChMap[issuance.Price.AssetID]; !ok {
-		return fmt.Errorf("no routine found for assetID: %s", issuance.Price.AssetID)
+	if len(r.contractToRoutineChMap) == 0 {
+		return fmt.Errorf("no relayer contract routines are active")
 	}
-	// Send the issuance to the corresponding channel
-	// This will be picked up by the startRoutine function
-	logging.Logger.Info("Sending issuance to asset channel", zap.String("assetID", issuance.Price.AssetID))
-	r.assetToRoutineChMap[issuance.Price.AssetID] <- issuance
+
+	for contractKey, ch := range r.contractToRoutineChMap {
+		logging.Logger.Info(
+			"Sending issuance to contract channel",
+			zap.String("assetID", issuance.Price.AssetID),
+			zap.String("contract", contractKey),
+		)
+		ch <- issuance
+	}
 	return nil
 }
 
-func (r *Relayer) startRoutine(ctx context.Context, assetID string) {
-	ch := r.assetToRoutineChMap[assetID]
-	for issuance := range ch {
-		for _, ctrct := range r.cfg.Contracts {
-			go r.ConveyIssuanceToContract(ctx, issuance, ctrct)
+func (r *Relayer) startRoutine(ctx context.Context, ctrct config.ContractConfig, ch <-chan *models.Issuance) {
+	maxBatch := r.cfg.RelayerBatch.MaxIssuances
+	if maxBatch <= 0 {
+		maxBatch = 20
+	}
+
+	flushEvery := time.Duration(r.cfg.RelayerBatch.FlushIntervalSeconds) * time.Second
+	if flushEvery <= 0 {
+		flushEvery = 3 * time.Second
+	}
+
+	ticker := time.NewTicker(flushEvery)
+	defer ticker.Stop()
+
+	batch := make([]*models.Issuance, 0, maxBatch)
+	flush := func() {
+		if len(batch) == 0 {
+			return
+		}
+		if err := r.ConveyBatchIssuancesToContract(ctx, batch, ctrct); err != nil {
+			logging.Logger.Error("Failed to convey issuance batch", zap.Error(err), zap.String("contract", r.contractKey(ctrct)))
+		}
+		batch = batch[:0]
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			flush()
+			return
+		case issuance, ok := <-ch:
+			if !ok {
+				flush()
+				return
+			}
+			if issuance == nil {
+				continue
+			}
+			batch = append(batch, issuance)
+			if len(batch) >= maxBatch {
+				flush()
+			}
+		case <-ticker.C:
+			flush()
 		}
 	}
 }
 
 func (r *Relayer) ConveyIssuanceToContract(ctx context.Context, issuance *models.Issuance, ctrct config.ContractConfig) error {
-	logging.Logger.Debug("ronveying issuance to contract", zap.String("assetID", issuance.Price.AssetID), zap.String("chainId", ctrct.ChainID))
+	return r.ConveyBatchIssuancesToContract(ctx, []*models.Issuance{issuance}, ctrct)
+}
+
+func (r *Relayer) ConveyBatchIssuancesToContract(ctx context.Context, issuances []*models.Issuance, ctrct config.ContractConfig) error {
+	if len(issuances) == 0 {
+		return nil
+	}
+
+	logging.Logger.Debug(
+		"conveying issuance batch to contract",
+		zap.Int("batchSize", len(issuances)),
+		zap.String("chainId", ctrct.ChainID),
+	)
+
 	rpcUrl := ctrct.RPC
 	if rpcUrl == "" {
 		rpcUrl = os.Getenv("ALCHEMY_URL")
@@ -111,14 +179,22 @@ func (r *Relayer) ConveyIssuanceToContract(ctx context.Context, issuance *models
 	}
 
 	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
+	chainLock := r.chainLocks[ctrct.ChainID]
+	if chainLock == nil {
+		chainLock = &sync.Mutex{}
+		r.chainLocks[ctrct.ChainID] = chainLock
+	}
 
-	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
+	chainLock.Lock()
+	defer chainLock.Unlock()
+
+	nonce, err := client.PendingNonceAt(ctx, fromAddress)
 	if err != nil {
 		logging.Logger.Error("Failed to get nonce", zap.Error(err), zap.String("chainId", ctrct.ChainID))
 		return err
 	}
 
-	gasPrice, err := client.SuggestGasPrice(context.Background())
+	gasPrice, err := client.SuggestGasPrice(ctx)
 	if err != nil {
 		logging.Logger.Error("Failed to suggest gas price", zap.Error(err))
 		return err
@@ -148,17 +224,23 @@ func (r *Relayer) ConveyIssuanceToContract(ctx context.Context, issuance *models
 	}
 
 	// Prepare inputs
-	key := utils.HexToBytes32(issuance.Price.AssetID)
+	latestByAsset := r.latestIssuancesByAsset(issuances)
+	assetIDs := make([]string, 0, len(latestByAsset))
+	for assetID := range latestByAsset {
+		assetIDs = append(assetIDs, assetID)
+	}
+	sort.Strings(assetIDs)
 
-	assetIndex := [][32]byte{}
-	assetIndex = append(assetIndex, key)
-
-	prices := []importVerifier.IIfaPriceFeedPriceFeed{
-		{
+	assetIndex := make([][32]byte, 0, len(assetIDs))
+	prices := make([]importVerifier.IIfaPriceFeedPriceFeed, 0, len(assetIDs))
+	for _, assetID := range assetIDs {
+		issuance := latestByAsset[assetID]
+		assetIndex = append(assetIndex, utils.HexToBytes32(assetID))
+		prices = append(prices, importVerifier.IIfaPriceFeedPriceFeed{
 			Price:          utils.Float64ToBigInt(issuance.Price.Value),
 			Decimal:        int8(issuance.Price.Expo),
 			LastUpdateTime: uint64(issuance.Price.Timestamp.Unix()),
-		},
+		})
 	}
 
 	tx, err := contract.SubmitPriceFeed(auth, assetIndex, prices)
@@ -166,15 +248,40 @@ func (r *Relayer) ConveyIssuanceToContract(ctx context.Context, issuance *models
 		logging.Logger.Error(
 			"Failed to submit price feed",
 			zap.Int64("chainID", chainID),
+			zap.Int("feedCount", len(prices)),
 			zap.String("Contract", address.String()),
 			zap.Error(err),
 		)
 		return fmt.Errorf("failed to submit price feed: %w", err)
 	}
 
-	logging.Logger.Info("Submitted price feed", zap.String("tx", tx.Hash().Hex()), zap.String("chainID", ctrct.ChainID))
+	logging.Logger.Info(
+		"Submitted price feed batch",
+		zap.String("tx", tx.Hash().Hex()),
+		zap.String("chainID", ctrct.ChainID),
+		zap.Int("requestedIssuances", len(issuances)),
+		zap.Int("submittedFeeds", len(prices)),
+	)
 
 	return nil
+}
+
+func (r *Relayer) latestIssuancesByAsset(issuances []*models.Issuance) map[string]*models.Issuance {
+	latestByAsset := make(map[string]*models.Issuance)
+	for _, issuance := range issuances {
+		if issuance == nil {
+			continue
+		}
+		existing, ok := latestByAsset[issuance.Price.AssetID]
+		if !ok || issuance.Price.Timestamp.After(existing.Price.Timestamp) {
+			latestByAsset[issuance.Price.AssetID] = issuance
+		}
+	}
+	return latestByAsset
+}
+
+func (r *Relayer) contractKey(ctrct config.ContractConfig) string {
+	return fmt.Sprintf("%s:%s", ctrct.ChainID, ctrct.Address)
 }
 
 // abigen --bin=./build/Store.bin --abi=./build/Store.abi --pkg=store --out=Store.go

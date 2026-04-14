@@ -165,6 +165,46 @@ The application uses a `config.yaml` file for configuration. Key settings includ
 - API keys for data providers
 - Consensus parameters
 
+### Relayer Batch Tuning
+
+The legacy relayer now supports contract-level batching so multiple issuance updates are submitted in one on-chain transaction per contract.
+
+```yaml
+relayer_batch:
+   enabled: true
+   max_issuances: 20
+   flush_interval_seconds: 3
+   channel_buffer: 256
+```
+
+- `max_issuances`: max updates grouped into one chain write.
+- `flush_interval_seconds`: upper bound on latency before a partial batch is flushed.
+- `channel_buffer`: backpressure buffer for incoming issuance events per contract.
+
+Use larger `max_issuances` for lower cost/update and smaller values for lower end-to-end latency.
+
+### Typical On-Chain Cost Model
+
+Use this approximation for `submitPriceFeed(bytes32[], PriceFeed[])`:
+
+- `gas_per_tx(batch_size) ~= base_gas + item_gas * batch_size`
+- Typical starting constants: `base_gas = 45,000`, `item_gas = 24,000`
+
+Cost per update:
+
+- `gas_per_update(batch_size) = gas_per_tx(batch_size) / batch_size`
+
+Examples:
+
+- Batch size 1: `~69,000 gas/update`
+- Batch size 10: `~28,500 gas/update` (about 59% lower)
+- Batch size 20: `~26,250 gas/update` (about 62% lower)
+
+Total chain spend estimate:
+
+- `daily_cost_native = updates_per_day * contracts * gas_per_update * gas_price_gwei * 1e-9`
+- `daily_cost_usd = daily_cost_native * native_token_usd`
+
 ## Development Workflow
 
 ### For Developers
