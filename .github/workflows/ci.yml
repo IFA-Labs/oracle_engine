@@ -112,7 +112,7 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o oracle-backend cmd/oracle/main.go
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: oracle-backend
           path: oracle-backend
